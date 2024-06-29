@@ -1,0 +1,25 @@
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]
+
+[tool.poetry]
+authors = ["leeparnell <152523161+leeparnell@users.noreply.github.com>"]
+description = "Flexible datetime handling for Python"
+name = "flexible-datetime"
+packages = [{include = "flexible_datetime"}]
+readme = "README.md"
+version = "0.1.0"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+arrow = "^1.3.0"
+pydantic = "^2.7.4"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.2"
+toml-sort = "^0.23.1"
+
+[tool.tomlsort]
+all = true
+in_place = true
+overrides."tool.poetry.dependencies".first = ["python"]
