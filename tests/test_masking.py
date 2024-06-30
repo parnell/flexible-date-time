@@ -60,7 +60,21 @@ def test_use_only(fdt: FlexDateTime):
         "millisecond": False,
     }
 
+def test_use_only_by_str(fdt: FlexDateTime):
+    fdt.apply_mask(year=True)
+    fdt.use_only("month", "day")
+    assert fdt.mask == {
+        "year": False,
+        "month": True,
+        "day": True,
+        "hour": False,
+        "minute": False,
+        "second": False,
+        "millisecond": False,
+    }
+
 
 # Run the tests
 if __name__ == "__main__":
     pytest.main(["-v", __file__])
+

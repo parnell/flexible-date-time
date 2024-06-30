@@ -10,7 +10,6 @@ class PyArrow(arrow.Arrow):
     """
     A subclass of arrow.Arrow that provides Pydantic V2 serialization.
     """
-
     @classmethod
     def __get_pydantic_core_schema__(
         cls,
@@ -33,12 +32,14 @@ class PyArrow(arrow.Arrow):
 
         return core_schema.no_info_after_validator_function(
             function=validate_by_arrow,
-            schema=core_schema.str_schema(),
+            schema=core_schema.union_schema([
+                core_schema.str_schema(),
+                core_schema.is_instance_schema(arrow.Arrow)
+            ]),
             serialization=core_schema.wrap_serializer_function_ser_schema(
                 arrow_serialization, info_arg=True
             ),
         )
-
 
 if not os.environ.get("SKIP_ARROW_PATCH"):
     # Patch arrow.Arrow to allow Pydantic V2 serialization
