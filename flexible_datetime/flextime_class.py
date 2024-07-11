@@ -10,8 +10,9 @@ from pydantic_core import core_schema
 
 import flexible_datetime.pydantic_arrow  # Need to import this module to patch arrow.Arrow
 from flexible_datetime.time_utils import infer_time_format
+from flexible_datetime.flexible_datetime import FlexDateTime
 
-FlextimeInput = Union[str, datetime, arrow.Arrow, dict, "flextime", None]
+FlextimeInput = Union[str, FlexDateTime, datetime, arrow.Arrow, dict, "flextime", None]
 
 
 class OutputFormat(StrEnum):
@@ -83,48 +84,55 @@ class flextime:
             raise ValueError("Cannot parse None as a flextime.")
         if not args and not kwargs:
             return  # default values
-        if args and isinstance(args[0], dict):
-            ## handle dict input
-            d = args[0]
-            is_dict_format = any(k in d for k in self._mask_fields)
-            if "dt" not in kwargs and is_dict_format:
-                ## {"year": 2023, "month": 6, "day": 29}
-                dt, mask = self._components_from_dict(d)
+        if args:
+            if isinstance(args[0], dict):
+                ## handle dict input
+                d = args[0]
+                is_dict_format = any(k in d for k in self._mask_fields)
+                if "dt" not in kwargs and is_dict_format:
+                    ## {"year": 2023, "month": 6, "day": 29}
+                    dt, mask = self._components_from_dict(d)
+                    self.dt = dt
+                    self.mask = mask
+                else:
+                    ## {"dt": "2023-06-29T12:30:45+00:00", "mask": "0011111"}
+                    self.dt = arrow.get(d["dt"])
+                    self.mask = self.binary_to_mask(d["mask"])
+            elif isinstance(args[0], str):
+                ## handle string input,"2023", "2023-06-29T12:30:45+00:00"
+                dt, mask = self._components_from_str(args[0])
                 self.dt = dt
                 self.mask = mask
+            elif isinstance(args[0], arrow.Arrow):
+                ## handle arrow.Arrow input
+                self.dt = args[0]
+            elif isinstance(args[0], flextime):
+                ## handle flextime input
+                self.dt = args[0].dt
+                self.mask = args[0].mask
+            elif isinstance(args[0], datetime):
+                ## handle datetime input
+                self.dt = arrow.get(args[0])
+            elif isinstance(args[0], FlexDateTime):
+                ## handle FlexDateTime input
+                self.dt = args[0].dt
+                self.mask = args[0].mask
             else:
-                ## {"dt": "2023-06-29T12:30:45+00:00", "mask": "0011111"}
-                self.dt = arrow.get(d["dt"])
-                self.mask = self.binary_to_mask(d["mask"])
-        elif args and isinstance(args[0], str):
-            ## handle string input,"2023", "2023-06-29T12:30:45+00:00"
-            dt, mask = self._components_from_str(args[0])
-            self.dt = dt
-            self.mask = mask
-        elif args and isinstance(args[0], arrow.Arrow):
-            ## handle arrow.Arrow input
-            self.dt = args[0]
-        elif args and isinstance(args[0], flextime):
-            ## handle flextime input
-            self.dt = args[0].dt
-            self.mask = args[0].mask
-        elif args and isinstance(args[0], datetime):
-            ## handle datetime input
-            self.dt = arrow.get(args[0])
+                raise ValueError(f"Unsupported input: {args}")
+            return
+        ## handle kwargs input
+        if "dt" in kwargs:
+            self.dt = arrow.get(kwargs["dt"])
+            if "mask" in kwargs:
+                if isinstance(kwargs["mask"], dict):
+                    self.mask = kwargs["mask"]
+                elif isinstance(kwargs["mask"], str):
+                    self.mask = self.binary_to_mask(kwargs["mask"])
+                else:
+                    raise ValueError(f"Invalid mask: {kwargs['mask']}")
+                print(self.mask)
         else:
-            ## handle kwargs input
-            if "dt" in kwargs:
-                self.dt = arrow.get(kwargs["dt"])
-                if "mask" in kwargs:
-                    if isinstance(kwargs["mask"], dict):
-                        self.mask = kwargs["mask"]
-                    elif isinstance(kwargs["mask"], str):
-                        self.mask = self.binary_to_mask(kwargs["mask"])
-                    else:
-                        raise ValueError(f"Invalid mask: {kwargs['mask']}")
-                    print(self.mask)
-            else:
-                raise NotImplementedError(f"Unsupported input: {args} {kwargs}")
+            raise NotImplementedError(f"Unsupported input: {args} {kwargs}")
 
     @classmethod
     def __get_pydantic_core_schema__(
