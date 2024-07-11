@@ -9,8 +9,8 @@ from pydantic import GetCoreSchemaHandler, field_serializer, field_validator
 from pydantic_core import core_schema
 
 import flexible_datetime.pydantic_arrow  # Need to import this module to patch arrow.Arrow
-from flexible_datetime.time_utils import infer_time_format
 from flexible_datetime.flexible_datetime import FlexDateTime
+from flexible_datetime.time_utils import infer_time_format
 
 FlextimeInput = Union[str, FlexDateTime, datetime, arrow.Arrow, dict, "flextime", None]
 
@@ -79,7 +79,7 @@ class flextime:
             "millisecond": False,
         }
 
-        self._output_format = flextime._default_output_format
+        self._output_format = self._default_output_format
         if args and args[0] is None:
             raise ValueError("Cannot parse None as a flextime.")
         if not args and not kwargs:
@@ -170,16 +170,6 @@ class flextime:
         if isinstance(value, flextime):
             return value
         return flextime(value)
-
-    # def model_dump(self, *args, **kwargs) -> dict[str, Any]:
-    #     if self._default_output_format == OutputFormat.datetime:
-    #         return {"dt": str(self.dt)}
-    #     return super().model_dump(*args, **kwargs)
-
-    # def model_dump_json(self, *args, **kwargs):
-    #     if self._default_output_format == OutputFormat.datetime:
-    #         return json.dumps({"dt": str(self.dt)})
-    #     return super().model_dump_json(*args, **kwargs)
 
     @staticmethod
     def infer_format(date_str: str) -> str:
@@ -547,6 +537,7 @@ class flextime:
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
+
 
 try:
     import beanie
