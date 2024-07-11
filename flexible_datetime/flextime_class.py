@@ -1,21 +1,11 @@
 import json
-import os
 import re
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum, StrEnum
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Optional, Union, overload
+from enum import StrEnum
+from typing import Any, ClassVar, Optional, Union
 
 import arrow
-from pydantic import (
-    BaseModel,
-    Field,
-    GetCoreSchemaHandler,
-    field_serializer,
-    field_validator,
-    model_validator,
-)
+from pydantic import GetCoreSchemaHandler, field_serializer, field_validator
 from pydantic_core import core_schema
 
 import flexible_datetime.pydantic_arrow  # Need to import this module to patch arrow.Arrow
@@ -335,15 +325,15 @@ class flextime:
     @property
     def day(self):
         return self.dt.day
-    
+
     @property
     def hour(self):
         return self.dt.hour
-    
+
     @property
     def minute(self):
         return self.dt.minute
-    
+
     @property
     def second(self):
         return self.dt.second
@@ -351,14 +341,10 @@ class flextime:
     @property
     def millisecond(self):
         return self.dt.microsecond // 1000
-    
+
     @property
     def microsecond(self):
         return self.dt.microsecond
-    
-
-
-
 
     def to_minimal_datetime(self, output_fmt: Optional[str] = None) -> str:
         """
@@ -553,3 +539,14 @@ class flextime:
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
+
+try:
+    import beanie
+    import beanie.odm.utils.encoder as encoder
+
+    def flextime_encoder(value: flextime) -> str:
+        return value.to_json()
+
+    encoder.DEFAULT_CUSTOM_ENCODERS[flextime] = flextime_encoder
+except ImportError:
+    pass
