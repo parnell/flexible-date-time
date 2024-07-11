@@ -1,26 +1,32 @@
 import json
+import os
 import re
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from datetime import datetime
-from enum import StrEnum
-from typing import Any, ClassVar, Optional
+from enum import Enum, StrEnum
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Optional, Union, overload
 
 import arrow
 from pydantic import (
     BaseModel,
     Field,
-    PrivateAttr,
+    GetCoreSchemaHandler,
     field_serializer,
     field_validator,
     model_validator,
 )
+from pydantic_core import core_schema
 
 import flexible_datetime.pydantic_arrow  # Need to import this module to patch arrow.Arrow
 from flexible_datetime.time_utils import infer_time_format
 
+FlextimeInput = Union[str, datetime, arrow.Arrow, dict, "flextime", None]
+
 
 class OutputFormat(StrEnum):
     """
-    Enum for the output formats of FlexDateTime.
+    Enum for the output formats of flextime.
 
     minimal_datetime: Serialize as shortest possible datetime format.
         Examples:
@@ -29,10 +35,10 @@ class OutputFormat(StrEnum):
     datetime: Serialize as full datetime format.
         Example: YYYY-MM-DD HH:mm:ss
 
-    flex: Serialize as a dict format with the datetime and mask.
+    flex: Serialize as JSON-compatible format.
         Example: {"dt": "2023-06-29T12:30:45+00:00", "mask": "0011111"}
 
-    components: Serialize as a dict format with masked components.
+    component_json: Serialize as JSON-compatible format with masked components.
         Example: {"year": 2023, "month": 6, "day": 29, "hour": 12, "minute": 30, "second": 45, "millisecond": 0}
     """
 
@@ -42,19 +48,7 @@ class OutputFormat(StrEnum):
     components = "components"
 
 
-class FlexDateTime(BaseModel):
-    dt: arrow.Arrow = Field(default_factory=arrow.utcnow)
-    mask: dict = Field(
-        default_factory=lambda: {
-            "year": False,
-            "month": False,
-            "day": False,
-            "hour": False,
-            "minute": False,
-            "second": False,
-            "millisecond": False,
-        }
-    )
+class flextime:
 
     _dt_formats: ClassVar[dict[str, str]] = {
         "YYYY": "year",
@@ -79,14 +73,26 @@ class FlexDateTime(BaseModel):
         "second": None,
         "millisecond": None,
     }
-    _default_output_format: ClassVar[OutputFormat] = OutputFormat.minimal_datetime
-    _output_format: OutputFormat = PrivateAttr(default=_default_output_format)
 
-    def __init__(self, *args, **kwargs):
+    _default_output_format: ClassVar[OutputFormat] = OutputFormat.minimal_datetime
+
+    def __init__(self, *args: FlextimeInput, **kwargs: Any):
+        self.dt = arrow.utcnow()
+        self.mask = {
+            "year": False,
+            "month": False,
+            "day": False,
+            "hour": False,
+            "minute": False,
+            "second": False,
+            "millisecond": False,
+        }
+
+        self._output_format = flextime._default_output_format
         if args and args[0] is None:
-            raise ValueError("Cannot parse None as a FlexDateTime.")
+            raise ValueError("Cannot parse None as a flextime.")
         if not args and not kwargs:
-            super().__init__(dt=arrow.utcnow())
+            return  # default values
         if args and isinstance(args[0], dict):
             ## handle dict input
             d = args[0]
@@ -94,51 +100,88 @@ class FlexDateTime(BaseModel):
             if "dt" not in kwargs and is_dict_format:
                 ## {"year": 2023, "month": 6, "day": 29}
                 dt, mask = self._components_from_dict(d)
-                super().__init__(dt=dt, mask=mask)
+                self.dt = dt
+                self.mask = mask
             else:
                 ## {"dt": "2023-06-29T12:30:45+00:00", "mask": "0011111"}
-                super().__init__(*args, **kwargs)
+                self.dt = arrow.get(d["dt"])
+                self.mask = self.binary_to_mask(d["mask"])
         elif args and isinstance(args[0], str):
             ## handle string input,"2023", "2023-06-29T12:30:45+00:00"
             dt, mask = self._components_from_str(args[0])
-            super().__init__(dt=dt, mask=mask)
+            self.dt = dt
+            self.mask = mask
         elif args and isinstance(args[0], arrow.Arrow):
             ## handle arrow.Arrow input
-            super().__init__(dt=args[0])
-        elif args and isinstance(args[0], FlexDateTime):
-            ## handle FlexDateTime input
-            super().__init__(dt=args[0].dt, mask=args[0].mask)
+            self.dt = args[0]
+        elif args and isinstance(args[0], flextime):
+            ## handle flextime input
+            self.dt = args[0].dt
+            self.mask = args[0].mask
         elif args and isinstance(args[0], datetime):
             ## handle datetime input
-            super().__init__(dt=arrow.get(args[0]))
+            self.dt = arrow.get(args[0])
         else:
-            ## handle other input
-            super().__init__(*args, **kwargs)
+            ## handle kwargs input
+            if "dt" in kwargs:
+                self.dt = arrow.get(kwargs["dt"])
+                if "mask" in kwargs:
+                    if isinstance(kwargs["mask"], dict):
+                        self.mask = kwargs["mask"]
+                    elif isinstance(kwargs["mask"], str):
+                        self.mask = self.binary_to_mask(kwargs["mask"])
+                    else:
+                        raise ValueError(f"Invalid mask: {kwargs['mask']}")
+                    print(self.mask)
+            else:
+                raise NotImplementedError(f"Unsupported input: {args} {kwargs}")
 
-    @model_validator(mode="before")
-    def custom_validate_before(cls, values):
-        if not values:
-            return values
-        elif isinstance(values, datetime):
-            return {"dt": arrow.get(values)}
-        elif isinstance(values, arrow.Arrow):
-            return {"dt": values}
-        elif isinstance(values, str):
-            return {"dt": arrow.get(values)}
-        elif isinstance(values, FlexDateTime):
-            return {"dt": values.dt, "mask": values.mask}
+    @classmethod
+    def __get_pydantic_core_schema__(
+        cls,
+        _source_type: Any,
+        _handler: GetCoreSchemaHandler,
+    ) -> core_schema.CoreSchema:
+        """
+        Defines the Pydantic core schema for flextime
+        """
 
-        return values
+        def flextime_serialization(value: flextime, _, info) -> str:
+            return str(value)
 
-    def model_dump(self, *args, **kwargs) -> dict[str, Any]:
-        if self._default_output_format == OutputFormat.datetime:
-            return {"dt": str(self.dt)}
-        return super().model_dump(*args, **kwargs)
+        return core_schema.no_info_after_validator_function(
+            function=cls.validate,
+            schema=core_schema.union_schema(
+                [
+                    core_schema.str_schema(),
+                    core_schema.dict_schema(),
+                    core_schema.is_instance_schema(flextime),
+                    core_schema.is_instance_schema(datetime),
+                    core_schema.is_instance_schema(arrow.Arrow),
+                    core_schema.is_instance_schema(cls),
+                    core_schema.no_info_plain_validator_function(cls),
+                ]
+            ),
+            serialization=core_schema.wrap_serializer_function_ser_schema(
+                flextime_serialization, info_arg=True
+            ),
+        )
 
-    def model_dump_json(self, *args, **kwargs):
-        if self._default_output_format == OutputFormat.datetime:
-            return json.dumps({"dt": str(self.dt)})
-        return super().model_dump_json(*args, **kwargs)
+    @classmethod
+    def validate(cls, value) -> "flextime":
+        if isinstance(value, flextime):
+            return value
+        return flextime(value)
+
+    # def model_dump(self, *args, **kwargs) -> dict[str, Any]:
+    #     if self._default_output_format == OutputFormat.datetime:
+    #         return {"dt": str(self.dt)}
+    #     return super().model_dump(*args, **kwargs)
+
+    # def model_dump_json(self, *args, **kwargs):
+    #     if self._default_output_format == OutputFormat.datetime:
+    #         return json.dumps({"dt": str(self.dt)})
+    #     return super().model_dump_json(*args, **kwargs)
 
     @staticmethod
     def infer_format(date_str: str) -> str:
@@ -163,17 +206,24 @@ class FlexDateTime(BaseModel):
         return value
 
     @classmethod
-    def from_str(cls, date_str: str, input_fmt: Optional[str] = None) -> "FlexDateTime":
+    def from_str(cls, date_str: str, input_fmt: Optional[str] = None) -> "flextime":
         """
-        Creates a FlexDateTime instance from a string.
+        Creates a flextime instance from a string.
         """
         dt, mask = cls._components_from_str(date_str, input_fmt)
         return cls(dt=dt, mask=mask)
 
     @classmethod
+    def from_datetime(cls, dt: datetime) -> "flextime":
+        """
+        Creates a flextime instance from a datetime.
+        """
+        return cls(dt=dt)
+
+    @classmethod
     def _components_from_str(cls, date_str: str, input_fmt: Optional[str] = None):
         """
-        Creates the components of a FlexDateTime instance from a string.
+        Creates the components of a flextime instance from a string.
         """
 
         try:
@@ -274,12 +324,48 @@ class FlexDateTime(BaseModel):
         for key in kwargs:
             self.mask[key] = not self.mask[key]
 
+    @property
+    def year(self):
+        return self.dt.year
+
+    @property
+    def month(self):
+        return self.dt.month
+
+    @property
+    def day(self):
+        return self.dt.day
+    
+    @property
+    def hour(self):
+        return self.dt.hour
+    
+    @property
+    def minute(self):
+        return self.dt.minute
+    
+    @property
+    def second(self):
+        return self.dt.second
+
+    @property
+    def millisecond(self):
+        return self.dt.microsecond // 1000
+    
+    @property
+    def microsecond(self):
+        return self.dt.microsecond
+    
+
+
+
+
     def to_minimal_datetime(self, output_fmt: Optional[str] = None) -> str:
         """
         Returns the string representation of the datetime, considering the mask.
         Args:
             output_fmt: The format of the output string.
-                Defaults to "YYYY-MM-DD HH:mm:ss", but masking will remove parts of the string.
+                Defaults to ISO 8601 format "YYYY-MM-DDTHH:mm:ss.SSSSSS%z", but masking will remove parts of the string.
 
         Returns:
             The string representation of the datetime.
@@ -287,10 +373,10 @@ class FlexDateTime(BaseModel):
         if not self.dt:
             return "Invalid datetime"
 
-        output_str = output_fmt or "YYYY-MM-DD HH:mm:ss"
+        output_str = output_fmt or "YYYY-MM-DDTHH:mm:ss.SSSSSS%z"
 
         # Handle each part
-        for fmt, part in FlexDateTime._dt_formats.items():
+        for fmt, part in flextime._dt_formats.items():
             if part == "millisecond":
                 # Format milliseconds/microseconds correctly
                 microseconds = self.dt.microsecond
@@ -311,6 +397,21 @@ class FlexDateTime(BaseModel):
                 if self.mask[part]:
                     replacement = ""
                 output_str = re.sub(r"S{1,6}", replacement, output_str)
+            elif part == "tzinfo":
+                # Handle timezone offset
+                if self.dt.tzinfo:
+                    offset = self.dt.utcoffset()
+                    if offset:
+                        hours, remainder = divmod(offset.total_seconds(), 3600)
+                        minutes = remainder // 60
+                        replacement = f"{hours:+03.0f}:{minutes:02.0f}"
+                    else:
+                        replacement = "+00:00"
+                else:
+                    replacement = ""
+                if self.mask[part]:
+                    replacement = ""
+                output_str = output_str.replace("%z", replacement)
             else:
                 value = getattr(self.dt, part)
                 replacement = (
@@ -320,18 +421,40 @@ class FlexDateTime(BaseModel):
                 output_str = output_str.replace(fmt, replacement)
 
         # Remove unnecessary separators while preserving date and time structure
-        output_str = re.sub(r"(?<=\d)(\s|-|:)(?=\d)", r"\1", output_str)
+        output_str = re.sub(r"(?<=\d)(\s|-|:|T)(?=\d)", r"\1", output_str)
         output_str = re.sub(r"\s+", " ", output_str).strip()
         output_str = re.sub(r"-+", "-", output_str)
         output_str = re.sub(r":+", ":", output_str)
 
-        # Remove all non-digits at the beginning and end of string
-        output_str = re.sub(r"^\D+|\D+$", "", output_str)
+        # Remove all non-digits at the beginning and end of string, except for '+' or '-' for timezone
+        output_str = re.sub(r"^[^\d+-]+|[^\d+-]+$", "", output_str)
 
+        # Remove trailing dot if no microseconds
+        output_str = re.sub(r"\.$", "", output_str)
+
+        # Remove trailing colon or dash
+        output_str = re.sub(r"[-:]\s*$", "", output_str)
         return output_str
 
-    def to_str(self, output_fmt: Optional[str] = None) -> str:
-        return self.to_minimal_datetime(output_fmt)
+    def to_str(self, output_format: Optional[str] = None) -> str:
+        output_format = output_format or self._output_format
+        if output_format == OutputFormat.datetime:
+            return str(self.dt)
+        elif output_format == OutputFormat.minimal_datetime:
+            return self.to_minimal_datetime()
+        elif output_format == OutputFormat.components:
+            return str(self.to_components())
+        return str(self.to_flex())
+
+    def to_json(self, output_format: Optional[str] = None) -> str:
+        return self.to_str(output_format)
+
+    def __json__(self) -> str:
+        return self.to_json()
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "flextime":
+        return flextime(json.loads(json_str))
 
     def to_components(self, output_fmt: Optional[str] = None) -> dict[str, int]:
         component_json = {
@@ -345,6 +468,10 @@ class FlexDateTime(BaseModel):
         }
         return {k: v for k, v in component_json.items() if not self.mask.get(k, False)}
 
+    @property
+    def mask_str(self) -> str:
+        return self.mask_to_binary(self.mask)
+
     def to_flex(self) -> dict[str, str]:
         mask = self.mask_to_binary(self.mask)
         return {"dt": str(self.dt), "mask": mask}
@@ -356,16 +483,10 @@ class FlexDateTime(BaseModel):
         """
         Returns the string representation of the datetime, considering the mask.
         """
-        if self._output_format == OutputFormat.datetime:
-            return str(self.dt)
-        elif self._output_format == OutputFormat.minimal_datetime:
-            return self.to_minimal_datetime()
-        elif self._output_format == OutputFormat.components:
-            return str(self.to_components())
-        return str(self.to_flex())
+        return self.to_str()
 
     def __repr__(self) -> str:
-        return self.model_dump_json()
+        return str(self)
 
     def get_comparable_dt(self) -> arrow.Arrow:
         """
@@ -380,51 +501,55 @@ class FlexDateTime(BaseModel):
             self.dt.second if not self.mask["second"] else 0,
         )
 
-    def _ensure_same_mask(self, other: "FlexDateTime") -> None:
+    def _ensure_same_mask(self, other: "flextime") -> None:
         """
         Ensures that the mask of the current instance matches the mask of the other instance.
         """
         if self.mask != other.mask:
             raise ValueError(
-                f"Cannot compare FlexDateTime instances with different masks. {self.mask} != {other.mask}"
+                f"Cannot compare flextime instances with different masks. {self.mask} != {other.mask}"
             )
 
-    def eq(self, other: "FlexDateTime", allow_different_masks: bool = False) -> bool:
+    def eq(self, other: "flextime", allow_different_masks: bool = False) -> bool:
         """
         Checks if the current instance is equal to the other instance.
         """
-        if not isinstance(other, FlexDateTime):
+        if not isinstance(other, flextime):
             return False
         if not allow_different_masks:
             self._ensure_same_mask(other)
         return self.get_comparable_dt() == other.get_comparable_dt()
 
     def __eq__(self, other) -> bool:
-        if not isinstance(other, FlexDateTime):
+        if not isinstance(other, flextime):
             return False
         self._ensure_same_mask(other)
         return self.get_comparable_dt() == other.get_comparable_dt()
 
     def __lt__(self, other) -> bool:
-        if not isinstance(other, FlexDateTime):
+        if not isinstance(other, flextime):
             return NotImplemented
         self._ensure_same_mask(other)
         return self.get_comparable_dt() < other.get_comparable_dt()
 
     def __le__(self, other) -> bool:
-        if not isinstance(other, FlexDateTime):
+        if not isinstance(other, flextime):
             return NotImplemented
         self._ensure_same_mask(other)
         return self.get_comparable_dt() <= other.get_comparable_dt()
 
     def __gt__(self, other) -> bool:
-        if not isinstance(other, FlexDateTime):
+        if not isinstance(other, flextime):
             return NotImplemented
         self._ensure_same_mask(other)
         return self.get_comparable_dt() > other.get_comparable_dt()
 
     def __ge__(self, other) -> bool:
-        if not isinstance(other, FlexDateTime):
+        if not isinstance(other, flextime):
             return NotImplemented
         self._ensure_same_mask(other)
         return self.get_comparable_dt() >= other.get_comparable_dt()
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate

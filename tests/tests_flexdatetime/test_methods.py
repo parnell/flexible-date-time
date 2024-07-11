@@ -63,7 +63,7 @@ def test_year_month_compact():
 def test_year_month_compact_output_fmt():
     fdt = FlexDateTime.from_str("202406", input_fmt="YYYYMM")
     assert fdt.dt == arrow.get("202406", "YYYYMM")
-    assert fdt.to_str(output_fmt="YYYYMM") == "202406"
+    assert fdt.to_minimal_datetime(output_fmt="YYYYMM") == "202406"
 
 
 def test_equality():

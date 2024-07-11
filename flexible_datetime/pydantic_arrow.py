@@ -46,3 +46,13 @@ if not os.environ.get("SKIP_ARROW_PATCH"):
     setattr(
         arrow.Arrow, "__get_pydantic_core_schema__", PyArrow.__get_pydantic_core_schema__
     )
+
+try :
+    import beanie
+    import beanie.odm.utils.encoder as encoder
+
+    def arrow_encoder(value: arrow.Arrow) -> str:
+        return value.for_json()
+    encoder.DEFAULT_CUSTOM_ENCODERS[arrow.Arrow] = arrow_encoder
+except ImportError:
+    pass

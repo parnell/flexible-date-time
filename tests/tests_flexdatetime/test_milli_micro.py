@@ -53,44 +53,44 @@ def test_from_str():
     assert flex_date.dt.minute == 34
     assert flex_date.dt.second == 56
     assert flex_date.dt.microsecond == 789000
-    assert flex_date.to_str("YYYY-MM-DD HH:mm:ss.SSS") == date_str
+    assert flex_date.to_minimal_datetime("YYYY-MM-DD HH:mm:ss.SSS") == date_str
     assert not any(flex_date.mask.values())
 
 
 def test_to_str_S():
     dt = arrow.get(2023, 6, 29, 12, 34, 56, 789000)
     flex_date = FlexDateTime(dt=dt)
-    assert flex_date.to_str("YYYY-MM-DD HH:mm:ss.S") == "2023-06-29 12:34:56.7"
+    assert flex_date.to_minimal_datetime("YYYY-MM-DD HH:mm:ss.S") == "2023-06-29 12:34:56.7"
 
 
 def test_to_str_SS():
     dt = arrow.get(2023, 6, 29, 12, 34, 56, 789000)
     flex_date = FlexDateTime(dt=dt)
-    assert flex_date.to_str("YYYY-MM-DD HH:mm:ss.SS") == "2023-06-29 12:34:56.78"
+    assert flex_date.to_minimal_datetime("YYYY-MM-DD HH:mm:ss.SS") == "2023-06-29 12:34:56.78"
 
 
 def test_to_str_SSS():
     dt = arrow.get(2023, 6, 29, 12, 34, 56, 789000)
     flex_date = FlexDateTime(dt=dt)
-    assert flex_date.to_str("YYYY-MM-DD HH:mm:ss.SSS") == "2023-06-29 12:34:56.789"
+    assert flex_date.to_minimal_datetime("YYYY-MM-DD HH:mm:ss.SSS") == "2023-06-29 12:34:56.789"
 
 
 def test_to_str_SSSS():
     dt = arrow.get(2023, 6, 29, 12, 34, 56, 789123)
     flex_date = FlexDateTime(dt=dt)
-    assert flex_date.to_str("YYYY-MM-DD HH:mm:ss.SSSS") == "2023-06-29 12:34:56.7891"
+    assert flex_date.to_minimal_datetime("YYYY-MM-DD HH:mm:ss.SSSS") == "2023-06-29 12:34:56.7891"
 
 
 def test_to_str_SSSSS():
     dt = arrow.get(2023, 6, 29, 12, 34, 56, 789123)
     flex_date = FlexDateTime(dt=dt)
-    assert flex_date.to_str("YYYY-MM-DD HH:mm:ss.SSSSS") == "2023-06-29 12:34:56.78912"
+    assert flex_date.to_minimal_datetime("YYYY-MM-DD HH:mm:ss.SSSSS") == "2023-06-29 12:34:56.78912"
 
 
 def test_to_str_SSSSSS():
     dt = arrow.get(2023, 6, 29, 12, 34, 56, 789123)
     flex_date = FlexDateTime(dt=dt)
-    assert flex_date.to_str("YYYY-MM-DD HH:mm:ss.SSSSSS") == "2023-06-29 12:34:56.789123"
+    assert flex_date.to_minimal_datetime("YYYY-MM-DD HH:mm:ss.SSSSSS") == "2023-06-29 12:34:56.789123"
 
 
 def test_edge_case_zero_milliseconds():
