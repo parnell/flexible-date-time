@@ -3,7 +3,7 @@ from datetime import datetime
 
 import arrow
 import pytest
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 
 from flexible_datetime import flextime
 
@@ -96,7 +96,7 @@ def test_in_class_from_datetime():
         fdt: flextime
 
     js = {"fdt": datetime.now()}
-    t = Test(**js)
+    t = Test(**js)  # type: ignore
     assert t.fdt.dt == arrow.get(js["fdt"])
 
 
@@ -106,7 +106,7 @@ def test_in_class_from_str():
         fdt: flextime
 
     js = {"fdt": "2023-06-29"}
-    t = Test(**js)
+    t = Test(**js)  # type: ignore
     assert t.fdt.dt == arrow.get(js["fdt"])
 
 
@@ -116,8 +116,9 @@ def test_in_class_from_components():
         fdt: flextime
 
     js = {"fdt": {"year": 2023, "month": 6, "day": 29}}
-    t = Test(**js)
+    t = Test(**js)  # type: ignore
     assert t.fdt.dt == arrow.get("2023-06-29")
+
 
 def test_in_class_from_components_dump_load():
     class Test(BaseModel):
@@ -125,12 +126,11 @@ def test_in_class_from_components_dump_load():
         fdt: flextime
 
     js = {"fdt": {"year": 2023, "month": 6, "day": 29}}
-    t = Test(**js)
+    t = Test(**js)  # type: ignore
     assert t.fdt.dt == arrow.get("2023-06-29")
     d = json.dumps(t.model_dump())
     t2 = Test(**json.loads(d))
     assert t == t2
-    
 
 
 if __name__ == "__main__":

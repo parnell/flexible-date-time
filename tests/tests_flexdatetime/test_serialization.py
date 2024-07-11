@@ -70,18 +70,22 @@ def test_y_str():
     fdt = FlexDateTime(f"2023")
     assert fdt.dt == arrow.get("2023")
 
+
 def test_in_class_from_datetime():
     class Test(BaseModel):
         fdt: FlexDateTime
+
     js = {"fdt": datetime.now()}
-    t = Test(**js)
+    t = Test(**js)  # type: ignore
     assert t.fdt.dt == arrow.get(js["fdt"])
+
 
 def test_in_class_from_str():
     class Test(BaseModel):
         fdt: FlexDateTime
+
     js = {"fdt": "2023-06-29"}
-    t = Test(**js)
+    t = Test(**js)  # type: ignore
     assert t.fdt.dt == arrow.get(js["fdt"])
 
 
