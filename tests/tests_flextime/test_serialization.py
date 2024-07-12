@@ -5,7 +5,7 @@ import arrow
 import pytest
 from pydantic import BaseModel
 
-from flexible_datetime import flextime, FlexDateTime
+from flexible_datetime import FlexDateTime, flextime
 
 
 def test_dump_load():
@@ -40,6 +40,7 @@ def test_from_datetime():
     ft = flextime(dt)
 
     assert ft.dt == at
+
 
 def test_from_flexdatetime():
 
@@ -90,20 +91,25 @@ def test_from_flex():
     mask = ft.mask_to_binary(ft.mask)
     assert mask == "0001111"
 
+
 def test_from_flex_dict_mask():
-    ft = flextime({"dt": "2023-06-29", "mask": {
-      "year": False,
-      "month": False,
-      "day": False,
-      "hour": True,
-      "minute": True,
-      "second": True,
-      "millisecond": True
-    }})
+    ft = flextime(
+        {
+            "dt": "2023-06-29",
+            "mask": {
+                "year": False,
+                "month": False,
+                "day": False,
+                "hour": True,
+                "minute": True,
+                "second": True,
+                "millisecond": True,
+            },
+        }
+    )
     assert ft.dt == arrow.get("2023-06-29")
     mask = ft.mask_to_binary(ft.mask)
     assert mask == "0001111"
-
 
 
 def test_from_dict_y():
@@ -147,9 +153,11 @@ def test_in_class_from_components():
     t = Test(**js)  # type: ignore
     assert t.ft.dt == arrow.get("2023-06-29")
 
+
 def test_in_class_from_flexdatetime():
     class Test(BaseModel):
         ft: flextime
+
     fdt = FlexDateTime("2023-06-29")
     js = {"ft": fdt}
     t = Test(**js)  # type: ignore
