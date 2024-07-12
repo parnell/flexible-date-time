@@ -95,9 +95,13 @@ class flextime:
                     self.dt = dt
                     self.mask = mask
                 else:
-                    ## {"dt": "2023-06-29T12:30:45+00:00", "mask": "0011111"}
                     self.dt = arrow.get(d["dt"])
-                    self.mask = self.binary_to_mask(d["mask"])
+                    if "mask" in d and isinstance(d["mask"], dict):
+                        ## {"dt": "2023-06-29T12:30:45+00:00", "mask": {"year": False,..."millisecond": True}}
+                        self.mask = d["mask"]
+                    elif "mask" in d and isinstance(d["mask"], str):
+                        ## {"dt": "2023-06-29T12:30:45+00:00", "mask": "0011111"}
+                        self.mask = self.binary_to_mask(d["mask"])
             elif isinstance(args[0], str):
                 ## handle string input,"2023", "2023-06-29T12:30:45+00:00"
                 dt, mask = self._components_from_str(args[0])

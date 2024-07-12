@@ -84,6 +84,28 @@ def test_from_dict_ym():
     assert mask == "0011111"
 
 
+def test_from_flex():
+    ft = flextime({"dt": "2023-06-29", "mask": "0001111"})
+    assert ft.dt == arrow.get("2023-06-29")
+    mask = ft.mask_to_binary(ft.mask)
+    assert mask == "0001111"
+
+def test_from_flex_dict_mask():
+    ft = flextime({"dt": "2023-06-29", "mask": {
+      "year": False,
+      "month": False,
+      "day": False,
+      "hour": True,
+      "minute": True,
+      "second": True,
+      "millisecond": True
+    }})
+    assert ft.dt == arrow.get("2023-06-29")
+    mask = ft.mask_to_binary(ft.mask)
+    assert mask == "0001111"
+
+
+
 def test_from_dict_y():
     ft = flextime.from_dict({"year": 2023})
     assert ft.dt == arrow.get("2023")
