@@ -1,5 +1,5 @@
 
-# FlexDateTime
+# Flexible Datetime
 
 A Python library providing flexible datetime creation and handling with masked comparison capabilities, built on Arrow and Pydantic.
 
@@ -24,6 +24,7 @@ pip install flexible-datetime
 ## Usage
 
 ```python
+
 from flexible_datetime import flextime
 
 # Parse various formats
@@ -32,35 +33,27 @@ ft = flextime({"year": 2023, "month": 6})     # From components
 ft = flextime("next thursday at 2pm")         # Natural language
 ft = flextime("2023-06-15T14:30:45")          # ISO format
 
-# Choose output formats
-print(ft)                                     # Default: 2023-06-15 14:30:45
-print(ft.to_str("flex"))                      # JSON with mask
-print(ft.to_str("datetime"))                  # Full ISO format
-print(ft.to_str("components"))                # Component dict
-
-# Use masking for flexible comparisons
-ft1 = flextime("2023-01-15")
-ft2 = flextime("2024-01-15")
-ft1.apply_mask(year=True)                     # Mask the year
-print(ft1 == ft2)                             # True - years are masked
+print(ft) 
+# Output: 2023-06-15T14:30:45
 ```
 
 ### Output Formats
 
-Control how your datetime is represented:
-
 ```python
-ft = flextime("2023-06-15T14:30")
+ft = flextime("2023-06-15")          # ISO format
 
-# Use to_str() for one-off format changes
-print(ft.to_str("minimal_datetime"))   # "2023-06-15 14:30"
-print(ft.to_str("datetime"))           # "2023-06-15T14:30:00+00:00"
-print(ft.to_str("flex"))               # {"dt": "2023-06-15T14:30:00+00:00", "mask": "0000011"}
-print(ft.to_str("components"))         # {"year": 2023, "month": 6, "day": 15, "hour": 14, "minute": 30}
+# Choose output formats
+print(ft) # default: Serialize as shortest possible datetime format.                      
+# Output: 2023-06-15
+print(ft.to_str("flex")) # JSON with mask           
+# Output: {'dt': '2023-06-15T00:00:00+00:00', 'mask': '0001111'}
 
-# Or set a default format
-ft._output_format = "flex"              # All future str() calls use this format
+print(ft.to_str("datetime")) # Full ISO format
+# Output: 2023-06-15T00:00:00+00:00
+print(ft.to_str("components")) # Component dict
+# Output {'year': 2023, 'month': 6, 'day': 15}
 ```
+
 
 ### Component Masking
 
@@ -78,6 +71,13 @@ ft.clear_mask()
 # Use only specific components
 ft.use_only("year", "month")           # Only use year and month
 print(ft)                              # "2023-06"
+
+# Use masking for flexible comparisons
+ft1 = flextime("2023-01-15")
+ft2 = flextime("2024-01-15")
+ft1.apply_mask(year=True) # Mask the year
+ft2.apply_mask(year=True) # Mask the year
+print(ft1 == ft2) # True - years are masked
 ```
 
 ### Component Access
