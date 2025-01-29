@@ -9,7 +9,7 @@ from dateutil import parser as date_parser
 from pydantic import GetCoreSchemaHandler, field_serializer, field_validator
 from pydantic_core import core_schema
 
-import flexible_datetime.pydantic_arrow  # noqa: F401 # Need to import this module to patch arrow.Arrow  
+import flexible_datetime.pydantic_arrow  # noqa: F401 # Need to import this module to patch arrow.Arrow
 from flexible_datetime.flexible_datetime import FlexDateTime
 from flexible_datetime.time_utils import infer_time_format
 
@@ -20,23 +20,23 @@ class OutputFormat(StrEnum):
     """
     Enum for the output formats of flextime.
 
-    minimal_datetime: Serialize as shortest possible datetime format.
+    short_datetime: Serialize as shortest possible datetime format.
         Examples:
             YYYY, YYYY-MM, YYYY-MM-DD, YYYY-MM-DD HH, YYYY-MM-DD HH:mm, YYYY-MM-DD HH:mm:ss
 
     datetime: Serialize as full datetime format.
         Example: YYYY-MM-DD HH:mm:ss
 
-    flex: Serialize as JSON-compatible format.
+    mask: Serialize as JSON-compatible format.
         Example: {"dt": "2023-06-29T12:30:45+00:00", "mask": "0011111"}
 
-    component_json: Serialize as JSON-compatible format with masked components.
+    component: Serialize as JSON-compatible format with masked components.
         Example: {"year": 2023, "month": 6, "day": 29, "hour": 12, "minute": 30, "second": 45, "millisecond": 0}
     """
 
-    minimal_datetime = "minimal_datetime"
+    short_datetime = "short"
     datetime = "datetime"
-    flex = "flex"
+    mask = "mask"
     components = "components"
 
 
@@ -66,7 +66,7 @@ class flextime:
         "millisecond": None,
     }
 
-    _default_output_format: ClassVar[OutputFormat] = OutputFormat.minimal_datetime
+    _default_output_format: ClassVar[OutputFormat] = OutputFormat.short_datetime
 
     def __init__(self, *args: FlextimeInput, **kwargs: Any):
         self.dt = arrow.utcnow()
@@ -80,7 +80,7 @@ class flextime:
             "millisecond": False,
         }
 
-        self._output_format = self._default_output_format
+        self._output_format: Optional[OutputFormat] = None
         if args and args[0] is None:
             raise ValueError("Cannot parse None as a flextime.")
         if not args and not kwargs:
@@ -455,9 +455,11 @@ class flextime:
 
     def to_str(self, output_format: Optional[str] = None) -> str:
         output_format = output_format or self._output_format
+        if output_format is None:
+            output_format = self._default_output_format
         if output_format == OutputFormat.datetime:
             return str(self.dt)
-        elif output_format == OutputFormat.minimal_datetime:
+        elif output_format == OutputFormat.short_datetime:
             return self.to_minimal_datetime()
         elif output_format == OutputFormat.components:
             return str(self.to_components())
@@ -527,6 +529,59 @@ class flextime:
                 f"Cannot compare flextime instances with different masks. {self.mask} != {other.mask}"
             )
 
+    @property
+    def output_format(self) -> Optional[OutputFormat]:
+        """Get the current output format."""
+        return self._output_format
+
+    @output_format.setter
+    def output_format(self, format: Optional[OutputFormat | str]) -> None:
+        """
+        Set the output format for this instance.
+
+        Args:
+            format: Either an OutputFormat enum value or a string matching one of:
+                    'minimal_datetime', 'datetime', 'flex', or 'components'
+
+        Raises:
+            ValueError: If the format string doesn't match any OutputFormat value
+        """
+        if isinstance(format, str):
+            try:
+                format = OutputFormat(format)
+            except ValueError:
+                valid_formats = [f.value for f in OutputFormat]
+                raise ValueError(f"Invalid format '{format}'. Must be one of: {valid_formats}")
+
+        if not isinstance(format, OutputFormat):
+            raise ValueError("Format must be an OutputFormat enum value or a valid format string")
+
+        self._output_format = format
+
+    @classmethod
+    def set_default_output_format(cls, format: Union[OutputFormat, str]) -> None:
+        """
+        Set the default output format for all new flextime instances.
+
+        Args:
+            format: Either an OutputFormat enum value or a string matching one of:
+                    'minimal_datetime', 'datetime', 'flex', or 'components'
+
+        Raises:
+            ValueError: If the format string doesn't match any OutputFormat value
+        """
+        if isinstance(format, str):
+            try:
+                format = OutputFormat(format)
+            except ValueError:
+                valid_formats = [f.value for f in OutputFormat]
+                raise ValueError(f"Invalid format '{format}'. Must be one of: {valid_formats}")
+
+        if not isinstance(format, OutputFormat):
+            raise ValueError("Format must be an OutputFormat enum value or a valid format string")
+
+        cls._default_output_format = format
+
     def eq(self, other: "flextime", allow_different_masks: bool = False) -> bool:
         """
         Checks if the current instance is equal to the other instance.
@@ -570,6 +625,14 @@ class flextime:
     @classmethod
     def __get_validators__(cls):
         yield cls.validate
+
+short_time = type('short_time', (flextime,), {'_default_output_format': OutputFormat.short_datetime})
+
+component_time = type('component_time', (flextime,), {'_default_output_format': OutputFormat.components})
+
+iso_time = type('iso_time', (flextime,), {'_default_output_format': OutputFormat.datetime})
+
+mask_time = type('flexible_time', (flextime,), {'_default_output_format': OutputFormat.mask})
 
 
 try:

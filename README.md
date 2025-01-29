@@ -93,6 +93,43 @@ print(ft.hour)                          # 14
 print(ft.minute)                        # 30
 ```
 
+## Output Format Specific Classes
+
+The library provides specialized classes for when you know you'll consistently need a specific output format:
+
+```python
+from flexible_datetime import component_time, minimal_time, iso_time, masked_time
+
+# Component format - outputs as dictionary of datetime components
+ct = component_time("2023-06-15T14:30")
+print(ct)  
+# {"year": 2023, "month": 6, "day": 15, "hour": 14, "minute": 30}
+
+# Minimal format - outputs shortest possible datetime representation
+mt = short_time("2023-06-15T14:30")
+print(mt)  
+# "2023-06-15T14:30"
+
+# ISO format - outputs full ISO8601 datetime
+it = iso_time("2023-06-15T14:30")
+print(it)  
+# "2023-06-15T14:30:00+00:00"
+
+# Masked format - outputs datetime with mask information
+ft = mask_time("2023-06")
+print(ft)  
+# {"dt": "2023-06-01T00:00:00+00:00", "mask": "0011111"}
+```
+
+Each class inherits all functionality from `flextime` but provides a consistent output format:
+
+- `component_time`: Best for when you need to access individual components programmatically
+- `minimal_time`: Best for human-readable output showing only specified components
+- `iso_time`: Best for standardized datetime strings and interoperability
+- `masked_time`: Best for scenarios where mask information needs to be preserved
+
+All methods and features (masking, comparison, component access) work the same way:
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
