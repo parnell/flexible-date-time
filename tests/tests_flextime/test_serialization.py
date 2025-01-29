@@ -123,7 +123,7 @@ def test_y():
 
 
 def test_y_str():
-    ft = flextime(f"2023")
+    ft = flextime("2023")
     assert ft.dt == arrow.get("2023")
 
 
