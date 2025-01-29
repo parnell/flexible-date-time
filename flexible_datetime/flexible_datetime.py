@@ -1,10 +1,11 @@
 import json
 import re
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Any, ClassVar, Optional
 
 import arrow
+from dateutil import parser as date_parser
 from pydantic import (
     BaseModel,
     Field,
@@ -108,6 +109,12 @@ class FlexDateTime(BaseModel):
         elif args and isinstance(args[0], FlexDateTime):
             ## handle FlexDateTime input
             super().__init__(dt=args[0].dt, mask=args[0].mask)
+        elif args and isinstance(args[0], date):
+            ## handle datetime input
+            super().__init__(
+                dt=arrow.get(args[0]),
+                mask=self.binary_to_mask("0001111"),
+            )
         elif args and isinstance(args[0], datetime):
             ## handle datetime input
             super().__init__(dt=arrow.get(args[0]))
@@ -171,6 +178,29 @@ class FlexDateTime(BaseModel):
         return cls(dt=dt, mask=mask)
 
     @classmethod
+    def from_datetime(cls, dt: datetime) -> "FlexDateTime":
+        """
+        Creates a FlexDateTime instance from a datetime.
+        """
+        return cls(dt=dt)
+
+    @classmethod
+    def _parse_date_or_datetime(cls, s):
+        # If it has "time-like" indicators, we assume user meant a time
+        # This set can be as minimal or extensive as you want.
+        # e.g. we also match "at 5", "at5", etc. if that is your usage.
+        time_pattern = re.compile(r"(\d:\d|am|pm|midnight|noon|\bat\s*\d)", re.IGNORECASE)
+        has_time = bool(time_pattern.search(s))
+
+        dt = date_parser.parse(s, fuzzy=True)
+
+        # If dateutil defaults year=1900, maybe fix that:
+        if dt.year == 1900:
+            dt = dt.replace(year=datetime.now().year)
+
+        return dt if has_time else dt.date()
+
+    @classmethod
     def _components_from_str(cls, date_str: str, input_fmt: Optional[str] = None):
         """
         Creates the components of a FlexDateTime instance from a string.
@@ -179,7 +209,16 @@ class FlexDateTime(BaseModel):
         try:
             dt = arrow.get(date_str, input_fmt) if input_fmt else arrow.get(date_str)
         except (arrow.parser.ParserError, ValueError):
-            raise ValueError(f"Invalid date string: {date_str}")
+            try:
+                date_time = cls._parse_date_or_datetime(date_str)
+                if isinstance(date_time, datetime):
+                    ft = cls(date_time)
+                    return ft.dt, ft.mask
+                else:
+                    ft = cls(date_time)
+                    return ft.dt, cls.binary_to_mask("0001111")
+            except ValueError:
+                raise ValueError(f"Invalid date string: {date_str}")
         mask = {field: False for field in cls._mask_fields}
 
         input_fmt = input_fmt or cls.infer_format(date_str)

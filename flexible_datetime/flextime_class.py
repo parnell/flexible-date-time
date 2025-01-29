@@ -1,10 +1,11 @@
 import json
 import re
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import Any, ClassVar, Optional, Union
 
 import arrow
+from dateutil import parser as date_parser
 from pydantic import GetCoreSchemaHandler, field_serializer, field_validator
 from pydantic_core import core_schema
 
@@ -12,7 +13,7 @@ import flexible_datetime.pydantic_arrow  # Need to import this module to patch a
 from flexible_datetime.flexible_datetime import FlexDateTime
 from flexible_datetime.time_utils import infer_time_format
 
-FlextimeInput = Union[str, FlexDateTime, datetime, arrow.Arrow, dict, "flextime", None]
+FlextimeInput = Union[str, FlexDateTime, date, datetime, arrow.Arrow, dict, "flextime", None]
 
 
 class OutputFormat(StrEnum):
@@ -107,20 +108,21 @@ class flextime:
                 dt, mask = self._components_from_str(args[0])
                 self.dt = dt
                 self.mask = mask
-            elif isinstance(args[0], arrow.Arrow):
-                ## handle arrow.Arrow input
-                self.dt = args[0]
             elif isinstance(args[0], flextime):
                 ## handle flextime input
                 self.dt = args[0].dt
                 self.mask = args[0].mask
-            elif isinstance(args[0], datetime):
-                ## handle datetime input
-                self.dt = arrow.get(args[0])
             elif isinstance(args[0], FlexDateTime):
                 ## handle FlexDateTime input
                 self.dt = args[0].dt
                 self.mask = args[0].mask
+            elif isinstance(args[0], datetime) or isinstance(args[0], arrow.Arrow):
+                self.dt = arrow.get(args[0])
+            elif isinstance(args[0], date):
+                self.dt = arrow.get(args[0])
+                self.mask.update(
+                    {"hour": True, "minute": True, "second": True, "millisecond": True}
+                )
             else:
                 raise ValueError(f"Unsupported input: {args}")
             return
@@ -206,14 +208,30 @@ class flextime:
         return cls(dt=dt, mask=mask)
 
     @classmethod
-    def from_datetime(cls, dt: datetime) -> "flextime":
+    def from_datetime(cls, dt: datetime | date) -> "flextime":
         """
         Creates a flextime instance from a datetime.
         """
         return cls(dt=dt)
 
     @classmethod
-    def _components_from_str(cls, date_str: str, input_fmt: Optional[str] = None):
+    def _parse_date_or_datetime(cls, s):
+        # If it has "time-like" indicators, we assume user meant a time
+        # This set can be as minimal or extensive as you want.
+        # e.g. we also match "at 5", "at5", etc. if that is your usage.
+        time_pattern = re.compile(r"(\d:\d|am|pm|midnight|noon|\bat\s*\d)", re.IGNORECASE)
+        has_time = bool(time_pattern.search(s))
+
+        dt = date_parser.parse(s, fuzzy=True)
+
+        # If dateutil defaults year=1900, maybe fix that:
+        if dt.year == 1900:
+            dt = dt.replace(year=datetime.now().year)
+
+        return dt if has_time else dt.date()
+
+    @classmethod
+    def _components_from_str(cls, date_str: str, input_fmt: Optional[str] = None) -> tuple:
         """
         Creates the components of a flextime instance from a string.
         """
@@ -221,7 +239,18 @@ class flextime:
         try:
             dt = arrow.get(date_str, input_fmt) if input_fmt else arrow.get(date_str)
         except (arrow.parser.ParserError, ValueError):
-            raise ValueError(f"Invalid date string: {date_str}")
+            try:
+                date_time = cls._parse_date_or_datetime(date_str)
+                if isinstance(date_time, datetime):
+                    ft = flextime(date_time)
+                    return ft.dt, ft.mask
+                else:
+                    ft = flextime(date_time)
+                    return ft.dt, cls.binary_to_mask("0001111")
+
+            except ValueError:
+                raise ValueError(f"Invalid date string: {date_str}")
+
         mask = {field: False for field in cls._mask_fields}
 
         input_fmt = input_fmt or cls.infer_format(date_str)
@@ -544,8 +573,8 @@ class flextime:
 
 
 try:
-    import beanie
-    import beanie.odm.utils.encoder as encoder
+    import beanie  # type: ignore
+    import beanie.odm.utils.encoder as encoder  # type: ignore
 
     def flextime_encoder(value: flextime) -> str:
         return value.to_json()

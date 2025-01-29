@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import date, datetime
 
 import arrow
 import pytest
@@ -176,5 +176,46 @@ def test_in_class_from_components_dump_load():
     assert t == t2
 
 
+def test_from_date():
+    # Creating a Python date object
+    dt = date(2022, 6, 2)
+    ft = flextime(dt)
+
+    # Expected output is the corresponding arrow object
+    expected_dt = arrow.get(dt)
+    assert ft.dt == expected_dt
+    assert ft.year == 2022
+    assert ft.month == 6
+    assert ft.day == 2
+    assert ft.mask_str == "0001111"
+
+
+def test_dump_load_from_date():
+    # Creating a Python date object and passing it to flextime
+    ft = flextime(date(2022, 6, 2))
+    d = json.dumps(ft.to_json())
+
+    # Loading the json back and ensuring the object remains the same
+    ft2 = flextime.from_json(d)
+    assert ft == ft2
+    assert ft2.year == 2022
+    assert ft2.month == 6
+    assert ft2.day == 2
+    assert ft.mask_str == "0001111"
+
+
+def test_from_dateutil():
+    ft = flextime("Aug 28")
+    now_ft = flextime()
+    assert ft.dt == arrow.get(f"{now_ft.year}-08-28")
+    assert ft.mask_str == "0001111"
+
+
+def test_from_dateutil_with_year():
+    ft = flextime("Aug 28, 2024")
+    assert ft.dt == arrow.get("2024-08-28")
+    assert ft.mask_str == "0001111"
+
+
 if __name__ == "__main__":
-    pytest.main([__file__])
+    pytest.main(["-v", __file__])
