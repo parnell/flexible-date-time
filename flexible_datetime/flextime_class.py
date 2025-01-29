@@ -9,7 +9,7 @@ from dateutil import parser as date_parser
 from pydantic import GetCoreSchemaHandler, field_serializer, field_validator
 from pydantic_core import core_schema
 
-import flexible_datetime.pydantic_arrow  # Need to import this module to patch arrow.Arrow
+import flexible_datetime.pydantic_arrow  # noqa: F401 # Need to import this module to patch arrow.Arrow  
 from flexible_datetime.flexible_datetime import FlexDateTime
 from flexible_datetime.time_utils import infer_time_format
 
@@ -573,7 +573,7 @@ class flextime:
 
 
 try:
-    import beanie  # type: ignore
+    import beanie  # type: ignore  # noqa: F401
     import beanie.odm.utils.encoder as encoder  # type: ignore
 
     def flextime_encoder(value: flextime) -> str:

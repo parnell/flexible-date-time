@@ -15,7 +15,8 @@ from pydantic import (
     model_validator,
 )
 
-import flexible_datetime.pydantic_arrow  # Need to import this module to patch arrow.Arrow
+# Need to import this module to patch arrow.Arrow
+import flexible_datetime.pydantic_arrow  # noqa: F401 # Need to import this module to patch arrow.Arrow  
 from flexible_datetime.time_utils import infer_time_format
 
 
