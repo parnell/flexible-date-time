@@ -11,7 +11,7 @@ description = "Flexible datetime handling for Python"
 name = "flexible-datetime"
 packages = [{include = "flexible_datetime"}]
 readme = "README.md"
-version = "0.3.2"
+version = "1.0.0"
 
 [tool.poetry.dependencies]
 python = "^3.11"
