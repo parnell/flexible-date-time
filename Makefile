@@ -8,7 +8,8 @@ format::
 	toml-sort pyproject.toml
 
 build:: format
-	poetry build
+	rm -rf dist/*
+	uv build
 
 publish:: build
-	poetry publish
+	uv publish
