@@ -1,19 +1,21 @@
 
 # FlexDateTime
 
-`FlexDateTime` is a Python class that provides flexible and enhanced functionality for handling and comparing dates and times using the Arrow library and Pydantic. 
+A Python library providing flexible datetime creation and handling with masked comparison capabilities, built on Arrow and Pydantic.
 
-## Description
+## Features
 
-The `FlexDateTime` class allows you to:
-- Parse dates and times from strings with various formats
-- Mask specific components (year, month, day, hour, minute, second) for comparison purposes
-- Serialize and deserialize dates and times with Pydantic V2
-- Easily compare dates and times with masked components
+Parse dates and times from:
+- ISO format strings
+- Partial dates ("2023-06", "2023")
+- Natural language ("June 15th, 2023", "next thursday")
+- Component dictionaries ({"year": 2023, "month": 6})
+- Python datetime/date objects
+- Arrow objects
+- Component masking for selective comparisons
+- Multiple serialization formats
 
 ## Installation
-
-To use `FlexDateTime`, you need to install the dependencies: `arrow` and `pydantic`.
 
 ```bash
 pip install flexible-datetime
@@ -21,77 +23,74 @@ pip install flexible-datetime
 
 ## Usage
 
-### Creating an Instance
-
-You can create a `FlexDateTime` instance by providing a date string and an optional input format.
-
 ```python
-from flexdatetime import FlexDateTime
+from flexible_datetime import flextime
 
-# Create an instance with the current utc time
-current_time = FlexDateTime()
+# Parse various formats
+ft = flextime("2023-06")                      # Partial date
+ft = flextime({"year": 2023, "month": 6})     # From components
+ft = flextime("next thursday at 2pm")         # Natural language
+ft = flextime("2023-06-15T14:30:45")          # ISO format
 
-# Create an instance from a date string
-date_time = FlexDateTime.from_str("2023-06-28T15:30:00")
+# Choose output formats
+print(ft)                                     # Default: 2023-06-15 14:30:45
+print(ft.to_str("flex"))                      # JSON with mask
+print(ft.to_str("datetime"))                  # Full ISO format
+print(ft.to_str("components"))                # Component dict
 
-# Create an instance from a date string with only year month day
-date_time = FlexDateTime.from_str("2023-06-28")
-
-# Create an instance from a date string with only year and moth
-date_time = FlexDateTime.from_str("2023-06")
-
-# Create an instance from a date string with only year
-date_time = FlexDateTime.from_str("2023")
+# Use masking for flexible comparisons
+ft1 = flextime("2023-01-15")
+ft2 = flextime("2024-01-15")
+ft1.apply_mask(year=True)                     # Mask the year
+print(ft1 == ft2)                             # True - years are masked
 ```
 
-### Masking Components
+### Output Formats
 
-Masking is automatically determined at initialization, but can also be explicitly set.
-
-Mask specific components of the date/time to exclude them from comparisons.
+Control how your datetime is represented:
 
 ```python
-# Mask the year and month
-date_time.apply_mask(year=True, month=True)
+ft = flextime("2023-06-15T14:30")
+
+# Use to_str() for one-off format changes
+print(ft.to_str("minimal_datetime"))   # "2023-06-15 14:30"
+print(ft.to_str("datetime"))           # "2023-06-15T14:30:00+00:00"
+print(ft.to_str("flex"))               # {"dt": "2023-06-15T14:30:00+00:00", "mask": "0000011"}
+print(ft.to_str("components"))         # {"year": 2023, "month": 6, "day": 15, "hour": 14, "minute": 30}
+
+# Or set a default format
+ft._output_format = "flex"              # All future str() calls use this format
 ```
 
-### Comparing Instances
+### Component Masking
 
-You can compare `FlexDateTime` instances while respecting the mask.
+Mask specific components for flexible comparisons:
 
 ```python
-date_time1 = FlexDateTime.from_str("2023-01-01T15:30:00")
-date_time2 = FlexDateTime.from_str("2024-01-01")
-date_time1.apply_mask(day=True, hour=True, second=True)
-# Compare the two instances
-print(date_time1 == date_time2)  # True, because only the year, month, day have not been masked
+# Mask specific components
+ft = flextime("2023-06-15T14:30")
+ft.apply_mask(hour=True, minute=True)  # Mask time components
+print(ft)                              # "2023-06-15"
+
+# Clear all masks
+ft.clear_mask()
+
+# Use only specific components
+ft.use_only("year", "month")           # Only use year and month
+print(ft)                              # "2023-06"
 ```
 
-### String Representation
+### Component Access
 
-Get the string representation of the date/time considering the mask.
-
-```python
-date_time = FlexDateTime.from_str("2000-01")
-print(str(date_time))  # Output: "2000-01"
-```
-
-## Example
-
-Here's a complete example demonstrating the usage of `FlexDateTime`:
+Access individual components directly:
 
 ```python
-from flexdatetime import FlexDateTime
-
-# Create an instance from a date string
-date_time1 = FlexDateTime.from_str("2000-01-01")
-date_time2 = FlexDateTime.from_str("2024-01-01")
-
-# Mask the year
-date_time2.apply_mask(year=True)
-
-# Compare the two instances
-print(date_time == another_date_time)  # True, because the year is masked
+ft = flextime("2023-06-15T14:30")
+print(ft.year)                          # 2023
+print(ft.month)                         # 6
+print(ft.day)                           # 15
+print(ft.hour)                          # 14
+print(ft.minute)                        # 30
 ```
 
 ## License
