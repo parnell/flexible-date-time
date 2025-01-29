@@ -1,34 +1,35 @@
 import pytest
 
-from flexible_datetime import flextime, OutputFormat
+from flexible_datetime import flex_datetime, OutputFormat
+
 
 @pytest.fixture
 def fdt():
-    return flextime("2000-01-02T12:34:56+00:00")
+    return flex_datetime("2000-01-02T12:34:56+00:00")
 
 
-def test_minimal_datetime_ymd(fdt: flextime):
+def test_minimal_datetime_ymd(fdt: flex_datetime):
     fdt.use_only("year", "month", "day")
     fdt._output_format = OutputFormat.short_datetime
 
     assert str(fdt) == "2000-01-02"
 
 
-def test_minimal_datetime_ym(fdt: flextime):
+def test_minimal_datetime_ym(fdt: flex_datetime):
     fdt.use_only("year", "month")
     fdt._output_format = OutputFormat.short_datetime
 
     assert str(fdt) == "2000-01"
 
 
-def test_datetime(fdt: flextime):
+def test_datetime(fdt: flex_datetime):
     fdt.use_only(["year", "month", "day"])
     fdt._output_format = OutputFormat.datetime
 
     assert str(fdt) == "2000-01-02T12:34:56+00:00"
 
 
-def test_flex(fdt: flextime):
+def test_flex(fdt: flex_datetime):
     fdt.use_only(["year", "month", "day"])
     fdt._output_format = OutputFormat.mask
     s = str(fdt.to_flex())
@@ -36,7 +37,7 @@ def test_flex(fdt: flextime):
     assert str(fdt) == s
 
 
-def test_components_ymd(fdt: flextime):
+def test_components_ymd(fdt: flex_datetime):
     fdt.use_only(["year", "month", "day"])
     fdt._output_format = OutputFormat.components
     d = {"year": 2000, "month": 1, "day": 2}

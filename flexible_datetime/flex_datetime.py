@@ -13,12 +13,12 @@ import flexible_datetime.pydantic_arrow  # noqa: F401 # Need to import this modu
 from flexible_datetime.flexible_datetime import FlexDateTime
 from flexible_datetime.time_utils import infer_time_format
 
-FlextimeInput = Union[str, FlexDateTime, date, datetime, arrow.Arrow, dict, "flextime", None]
+FlextimeInput = Union[str, FlexDateTime, date, datetime, arrow.Arrow, dict, "flex_datetime", None]
 
 
 class OutputFormat(StrEnum):
     """
-    Enum for the output formats of flextime.
+    Enum for the output formats of flex_datetime.
 
     short_datetime: Serialize as shortest possible datetime format.
         Examples:
@@ -40,7 +40,7 @@ class OutputFormat(StrEnum):
     components = "components"
 
 
-class flextime:
+class flex_datetime:
 
     _dt_formats: ClassVar[dict[str, str]] = {
         "YYYY": "year",
@@ -82,7 +82,7 @@ class flextime:
 
         self._output_format: Optional[OutputFormat] = None
         if args and args[0] is None:
-            raise ValueError("Cannot parse None as a flextime.")
+            raise ValueError("Cannot parse None as a flex_datetime.")
         if not args and not kwargs:
             return  # default values
         if args:
@@ -108,8 +108,8 @@ class flextime:
                 dt, mask = self._components_from_str(args[0])
                 self.dt = dt
                 self.mask = mask
-            elif isinstance(args[0], flextime):
-                ## handle flextime input
+            elif isinstance(args[0], flex_datetime):
+                ## handle flex_datetime input
                 self.dt = args[0].dt
                 self.mask = args[0].mask
             elif isinstance(args[0], FlexDateTime):
@@ -147,10 +147,10 @@ class flextime:
         _handler: GetCoreSchemaHandler,
     ) -> core_schema.CoreSchema:
         """
-        Defines the Pydantic core schema for flextime
+        Defines the Pydantic core schema for flex_datetime
         """
 
-        def flextime_serialization(value: flextime, _, info) -> str:
+        def flex_datetime_serialization(value: flex_datetime, _, info) -> str:
             return str(value)
 
         return core_schema.no_info_after_validator_function(
@@ -159,7 +159,7 @@ class flextime:
                 [
                     core_schema.str_schema(),
                     core_schema.dict_schema(),
-                    core_schema.is_instance_schema(flextime),
+                    core_schema.is_instance_schema(flex_datetime),
                     core_schema.is_instance_schema(datetime),
                     core_schema.is_instance_schema(arrow.Arrow),
                     core_schema.is_instance_schema(cls),
@@ -167,15 +167,15 @@ class flextime:
                 ]
             ),
             serialization=core_schema.wrap_serializer_function_ser_schema(
-                flextime_serialization, info_arg=True
+                flex_datetime_serialization, info_arg=True
             ),
         )
 
     @classmethod
-    def validate(cls, value) -> "flextime":
-        if isinstance(value, flextime):
+    def validate(cls, value) -> "flex_datetime":
+        if isinstance(value, flex_datetime):
             return value
-        return flextime(value)
+        return flex_datetime(value)
 
     @staticmethod
     def infer_format(date_str: str) -> str:
@@ -200,17 +200,17 @@ class flextime:
         return value
 
     @classmethod
-    def from_str(cls, date_str: str, input_fmt: Optional[str] = None) -> "flextime":
+    def from_str(cls, date_str: str, input_fmt: Optional[str] = None) -> "flex_datetime":
         """
-        Creates a flextime instance from a string.
+        Creates a flex_datetime instance from a string.
         """
         dt, mask = cls._components_from_str(date_str, input_fmt)
         return cls(dt=dt, mask=mask)
 
     @classmethod
-    def from_datetime(cls, dt: datetime | date) -> "flextime":
+    def from_datetime(cls, dt: datetime | date) -> "flex_datetime":
         """
-        Creates a flextime instance from a datetime.
+        Creates a flex_datetime instance from a datetime.
         """
         return cls(dt=dt)
 
@@ -233,7 +233,7 @@ class flextime:
     @classmethod
     def _components_from_str(cls, date_str: str, input_fmt: Optional[str] = None) -> tuple:
         """
-        Creates the components of a flextime instance from a string.
+        Creates the components of a flex_datetime instance from a string.
         """
 
         try:
@@ -242,10 +242,10 @@ class flextime:
             try:
                 date_time = cls._parse_date_or_datetime(date_str)
                 if isinstance(date_time, datetime):
-                    ft = flextime(date_time)
+                    ft = flex_datetime(date_time)
                     return ft.dt, ft.mask
                 else:
-                    ft = flextime(date_time)
+                    ft = flex_datetime(date_time)
                     return ft.dt, cls.binary_to_mask("0001111")
 
             except ValueError:
@@ -393,7 +393,7 @@ class flextime:
         output_str = output_fmt or "YYYY-MM-DDTHH:mm:ss.SSSSSS%z"
 
         # Handle each part
-        for fmt, part in flextime._dt_formats.items():
+        for fmt, part in flex_datetime._dt_formats.items():
             if part == "millisecond":
                 # Format milliseconds/microseconds correctly
                 microseconds = self.dt.microsecond
@@ -472,8 +472,8 @@ class flextime:
         return self.to_json()
 
     @classmethod
-    def from_json(cls, json_str: str) -> "flextime":
-        return flextime(json.loads(json_str))
+    def from_json(cls, json_str: str) -> "flex_datetime":
+        return flex_datetime(json.loads(json_str))
 
     def to_components(self, output_fmt: Optional[str] = None) -> dict[str, int]:
         component_json = {
@@ -520,13 +520,13 @@ class flextime:
             self.dt.second if not self.mask["second"] else 0,
         )
 
-    def _ensure_same_mask(self, other: "flextime") -> None:
+    def _ensure_same_mask(self, other: "flex_datetime") -> None:
         """
         Ensures that the mask of the current instance matches the mask of the other instance.
         """
         if self.mask != other.mask:
             raise ValueError(
-                f"Cannot compare flextime instances with different masks. {self.mask} != {other.mask}"
+                f"Cannot compare flex_datetime instances with different masks. {self.mask} != {other.mask}"
             )
 
     @property
@@ -561,7 +561,7 @@ class flextime:
     @classmethod
     def set_default_output_format(cls, format: Union[OutputFormat, str]) -> None:
         """
-        Set the default output format for all new flextime instances.
+        Set the default output format for all new flex_datetime instances.
 
         Args:
             format: Either an OutputFormat enum value or a string matching one of:
@@ -582,42 +582,42 @@ class flextime:
 
         cls._default_output_format = format
 
-    def eq(self, other: "flextime", allow_different_masks: bool = False) -> bool:
+    def eq(self, other: "flex_datetime", allow_different_masks: bool = False) -> bool:
         """
         Checks if the current instance is equal to the other instance.
         """
-        if not isinstance(other, flextime):
+        if not isinstance(other, flex_datetime):
             return False
         if not allow_different_masks:
             self._ensure_same_mask(other)
         return self.get_comparable_dt() == other.get_comparable_dt()
 
     def __eq__(self, other) -> bool:
-        if not isinstance(other, flextime):
+        if not isinstance(other, flex_datetime):
             return False
         self._ensure_same_mask(other)
         return self.get_comparable_dt() == other.get_comparable_dt()
 
     def __lt__(self, other) -> bool:
-        if not isinstance(other, flextime):
+        if not isinstance(other, flex_datetime):
             return NotImplemented
         self._ensure_same_mask(other)
         return self.get_comparable_dt() < other.get_comparable_dt()
 
     def __le__(self, other) -> bool:
-        if not isinstance(other, flextime):
+        if not isinstance(other, flex_datetime):
             return NotImplemented
         self._ensure_same_mask(other)
         return self.get_comparable_dt() <= other.get_comparable_dt()
 
     def __gt__(self, other) -> bool:
-        if not isinstance(other, flextime):
+        if not isinstance(other, flex_datetime):
             return NotImplemented
         self._ensure_same_mask(other)
         return self.get_comparable_dt() > other.get_comparable_dt()
 
     def __ge__(self, other) -> bool:
-        if not isinstance(other, flextime):
+        if not isinstance(other, flex_datetime):
             return NotImplemented
         self._ensure_same_mask(other)
         return self.get_comparable_dt() >= other.get_comparable_dt()
@@ -626,22 +626,31 @@ class flextime:
     def __get_validators__(cls):
         yield cls.validate
 
-short_time = type('short_time', (flextime,), {'_default_output_format': OutputFormat.short_datetime})
 
-component_time = type('component_time', (flextime,), {'_default_output_format': OutputFormat.components})
+short_datetime = type(
+    "short_datetime", (flex_datetime,), {"_default_output_format": OutputFormat.short_datetime}
+)
 
-iso_time = type('iso_time', (flextime,), {'_default_output_format': OutputFormat.datetime})
+dict_datetime = type(
+    "dict_datetime", (flex_datetime,), {"_default_output_format": OutputFormat.components}
+)
 
-mask_time = type('flexible_time', (flextime,), {'_default_output_format': OutputFormat.mask})
+iso_datetime = type(
+    "iso_datetime", (flex_datetime,), {"_default_output_format": OutputFormat.datetime}
+)
+
+mask_datetime = type(
+    "flexible_time", (flex_datetime,), {"_default_output_format": OutputFormat.mask}
+)
 
 
 try:
     import beanie  # type: ignore  # noqa: F401
     import beanie.odm.utils.encoder as encoder  # type: ignore
 
-    def flextime_encoder(value: flextime) -> str:
+    def flex_datetime_encoder(value: flex_datetime) -> str:
         return value.to_json()
 
-    encoder.DEFAULT_CUSTOM_ENCODERS[flextime] = flextime_encoder
+    encoder.DEFAULT_CUSTOM_ENCODERS[flex_datetime] = flex_datetime_encoder
 except ImportError:
     pass

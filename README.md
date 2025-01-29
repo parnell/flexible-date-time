@@ -25,13 +25,13 @@ pip install flexible-datetime
 
 ```python
 
-from flexible_datetime import flextime
+from flexible_datetime import flex_datetime
 
 # Parse various formats
-ft = flextime("2023-06")                      # Partial date
-ft = flextime({"year": 2023, "month": 6})     # From components
-ft = flextime("next thursday at 2pm")         # Natural language
-ft = flextime("2023-06-15T14:30:45")          # ISO format
+ft = flex_datetime("2023-06")                      # Partial date
+ft = flex_datetime({"year": 2023, "month": 6})     # From components
+ft = flex_datetime("next thursday at 2pm")         # Natural language
+ft = flex_datetime("2023-06-15T14:30:45")          # ISO format
 
 print(ft) 
 # Output: 2023-06-15T14:30:45
@@ -40,7 +40,7 @@ print(ft)
 ### Output Formats
 
 ```python
-ft = flextime("2023-06-15")          # ISO format
+ft = flex_datetime("2023-06-15")          # ISO format
 
 # Choose output formats
 print(ft) # default: Serialize as shortest possible datetime format.                      
@@ -61,7 +61,7 @@ Mask specific components for flexible comparisons:
 
 ```python
 # Mask specific components
-ft = flextime("2023-06-15T14:30")
+ft = flex_datetime("2023-06-15T14:30")
 ft.apply_mask(hour=True, minute=True)  # Mask time components
 print(ft)                              # "2023-06-15"
 
@@ -73,8 +73,8 @@ ft.use_only("year", "month")           # Only use year and month
 print(ft)                              # "2023-06"
 
 # Use masking for flexible comparisons
-ft1 = flextime("2023-01-15")
-ft2 = flextime("2024-01-15")
+ft1 = flex_datetime("2023-01-15")
+ft2 = flex_datetime("2024-01-15")
 ft1.apply_mask(year=True) # Mask the year
 ft2.apply_mask(year=True) # Mask the year
 print(ft1 == ft2) # True - years are masked
@@ -85,7 +85,7 @@ print(ft1 == ft2) # True - years are masked
 Access individual components directly:
 
 ```python
-ft = flextime("2023-06-15T14:30")
+ft = flex_datetime("2023-06-15T14:30")
 print(ft.year)                          # 2023
 print(ft.month)                         # 6
 print(ft.day)                           # 15
@@ -98,35 +98,35 @@ print(ft.minute)                        # 30
 The library provides specialized classes for when you know you'll consistently need a specific output format:
 
 ```python
-from flexible_datetime import component_time, minimal_time, iso_time, masked_time
+from flexible_datetime import dict_datetime, minimal_time, iso_datetime, mask_datetime
 
 # Component format - outputs as dictionary of datetime components
-ct = component_time("2023-06-15T14:30")
+ct = dict_datetime("2023-06-15T14:30")
 print(ct)  
 # {"year": 2023, "month": 6, "day": 15, "hour": 14, "minute": 30}
 
 # Minimal format - outputs shortest possible datetime representation
-mt = short_time("2023-06-15T14:30")
+mt = short_datetime("2023-06-15T14:30")
 print(mt)  
 # "2023-06-15T14:30"
 
 # ISO format - outputs full ISO8601 datetime
-it = iso_time("2023-06-15T14:30")
+it = iso_datetime("2023-06-15T14:30")
 print(it)  
 # "2023-06-15T14:30:00+00:00"
 
 # Masked format - outputs datetime with mask information
-ft = mask_time("2023-06")
+ft = mask_datetime("2023-06")
 print(ft)  
 # {"dt": "2023-06-01T00:00:00+00:00", "mask": "0011111"}
 ```
 
-Each class inherits all functionality from `flextime` but provides a consistent output format:
+Each class inherits all functionality from `flex_datetime` but provides a consistent output format:
 
-- `component_time`: Best for when you need to access individual components programmatically
+- `dict_datetime`: Best for when you need to access individual components programmatically
 - `minimal_time`: Best for human-readable output showing only specified components
-- `iso_time`: Best for standardized datetime strings and interoperability
-- `masked_time`: Best for scenarios where mask information needs to be preserved
+- `iso_datetime`: Best for standardized datetime strings and interoperability
+- `mask_datetime`: Best for scenarios where mask information needs to be preserved
 
 All methods and features (masking, comparison, component access) work the same way:
 

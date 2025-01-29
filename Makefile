@@ -8,7 +8,6 @@ format::
 	toml-sort pyproject.toml
 
 build:: format
-	rm -rf dist/*
 	uv build
 
 publish:: build
