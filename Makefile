@@ -1,8 +1,8 @@
 
 test::
 	pytest tests/test*.py
-	pytest tests/tests_flexdatetime
-	pytest tests/tests_flextime
+	pytest tests/tests_class_flexdatetime
+	pytest tests/tests_flex_datetime
 
 format::
 	toml-sort pyproject.toml
