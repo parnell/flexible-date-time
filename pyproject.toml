@@ -1,6 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "flexible-datetime"
-version = "1.0.2"
+version = "1.0.3"
 description = "Flexible datetime handling for Python"
 readme = "README.md"
 requires-python = ">=3.11"
