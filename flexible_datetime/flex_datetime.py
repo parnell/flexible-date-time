@@ -34,7 +34,7 @@ class OutputFormat(StrEnum):
         Example: {"year": 2023, "month": 6, "day": 29, "hour": 12, "minute": 30, "second": 45, "millisecond": 0}
     """
 
-    short_datetime = "short"
+    short = "short"
     datetime = "datetime"
     mask = "mask"
     components = "components"
@@ -66,7 +66,7 @@ class flex_datetime:
         "millisecond": None,
     }
 
-    _default_output_format: ClassVar[OutputFormat] = OutputFormat.short_datetime
+    _default_output_format: ClassVar[OutputFormat] = OutputFormat.short
 
     def __init__(self, *args: FlextimeInput, **kwargs: Any):
         self.dt = arrow.utcnow()
@@ -377,7 +377,7 @@ class flex_datetime:
     def microsecond(self):
         return self.dt.microsecond
 
-    def to_minimal_datetime(self, output_fmt: Optional[str] = None) -> str:
+    def to_short_datetime(self, output_fmt: Optional[str] = None) -> str:
         """
         Returns the string representation of the datetime, considering the mask.
         Args:
@@ -459,8 +459,8 @@ class flex_datetime:
             output_format = self._default_output_format
         if output_format == OutputFormat.datetime:
             return str(self.dt)
-        elif output_format == OutputFormat.short_datetime:
-            return self.to_minimal_datetime()
+        elif output_format == OutputFormat.short:
+            return self.to_short_datetime()
         elif output_format == OutputFormat.components:
             return str(self.to_components())
         return str(self.to_flex())
@@ -475,7 +475,7 @@ class flex_datetime:
     def from_json(cls, json_str: str) -> "flex_datetime":
         return flex_datetime(json.loads(json_str))
 
-    def to_components(self, output_fmt: Optional[str] = None) -> dict[str, int]:
+    def to_components(self) -> dict[str, int]:
         component_json = {
             "year": self.dt.year,
             "month": self.dt.month,
@@ -492,10 +492,22 @@ class flex_datetime:
         return self.mask_to_binary(self.mask)
 
     def to_flex(self) -> dict[str, str]:
+        """
+        Returns the dictionary representation of the datetime and mask.
+        """
         mask = self.mask_to_binary(self.mask)
         return {"dt": str(self.dt), "mask": mask}
 
+    def to_mask(self) -> dict[str, str]:
+        """
+        Returns the dictionary representation of the datetime and mask.
+        """
+        return self.to_flex()
+
     def to_datetime(self) -> datetime:
+        """
+        Returns the datetime object.
+        """
         return self.dt.datetime
 
     def __str__(self) -> str:
@@ -541,7 +553,7 @@ class flex_datetime:
 
         Args:
             format: Either an OutputFormat enum value or a string matching one of:
-                    'minimal_datetime', 'datetime', 'flex', or 'components'
+                    'short', 'datetime', 'mask', or 'components'
 
         Raises:
             ValueError: If the format string doesn't match any OutputFormat value
@@ -565,7 +577,7 @@ class flex_datetime:
 
         Args:
             format: Either an OutputFormat enum value or a string matching one of:
-                    'minimal_datetime', 'datetime', 'flex', or 'components'
+                    'short', 'datetime', 'mask', or 'components'
 
         Raises:
             ValueError: If the format string doesn't match any OutputFormat value
@@ -628,7 +640,7 @@ class flex_datetime:
 
 
 short_datetime = type(
-    "short_datetime", (flex_datetime,), {"_default_output_format": OutputFormat.short_datetime}
+    "short_datetime", (flex_datetime,), {"_default_output_format": OutputFormat.short}
 )
 
 dict_datetime = type(
