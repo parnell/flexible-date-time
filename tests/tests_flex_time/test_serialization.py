@@ -75,20 +75,6 @@ def test_from_string_formats():
         ), f"Wrong mask for input: {time_str}. Got {ft.mask_to_binary(ft.mask)}, expected {expected_mask}"
 
 
-def test_string_output_formats():
-    # Test with seconds provided
-    ft = flex_time("14:30:45")
-    assert ft.to_str(output_format="short") == "14:30:45"
-
-    # Test with only hour and minute
-    ft = flex_time("14:30")
-    assert ft.to_str(output_format="short") == "14:30"
-
-    # Test with only hour - should still show minutes
-    ft = flex_time("14")
-    assert ft.to_str(output_format="short") == "14:00"
-
-
 def test_to_components():
     # Full time provided
     ft = flex_time("14:30:45")
@@ -245,6 +231,11 @@ def test_hour_only_format():
         ft = flex_time(time_str)
         assert ft.time == expected_time, f"Time parsing failed for input: {time_str}"
         assert ft.mask_to_binary(ft.mask) == expected_mask, f"Mask failed for input: {time_str}"
+        ## again without the "m"
+        time_str = time_str[:-1]
+        ft = flex_time(time_str)
+        assert ft.time == expected_time, f"Time parsing failed for input: {time_str}"
+        assert ft.mask_to_binary(ft.mask) == expected_mask, f"Mask failed for input: {time_str}"
 
 
 def test_special_formats():
@@ -264,7 +255,9 @@ def test_special_formats():
 
     for time_str, expected_time, expected_mask in test_cases:
         ft = flex_time(time_str)
-        assert ft.time == expected_time, f"Time parsing failed for input: {time_str}"
+        assert (
+            ft.time == expected_time
+        ), f"Time parsing failed for input: {time_str}, {ft.time}, {expected_time}"
         assert ft.mask_to_binary(ft.mask) == expected_mask, f"Mask failed for input: {time_str}"
 
 

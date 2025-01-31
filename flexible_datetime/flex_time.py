@@ -219,136 +219,79 @@ class flex_time:
 
     @staticmethod
     def _parse_time_str(time_str: str) -> time:
-        """
-        Parse a time string into a time object.
-        Handles both natural language and formatted time strings.
-        """
-        # Initial cleanup
-        time_str = time_str.strip()
-        original_str = time_str
-        time_str = time_str.lower()
+        # Remove common prefixes first
+        prefixes = ["at ", "before ", "after ", "by "]
+        time_str = time_str.lower().strip()
+        for prefix in prefixes:
+            if time_str.startswith(prefix):
+                time_str = time_str[len(prefix) :]
+                break
 
-        # Try natural language parsing first
         natural_time = flex_time._parse_natural_time_str(time_str)
         if natural_time is not None:
             return natural_time
+        original_str = time_str
 
-        # Clean up AM/PM notation and spaces around colons
-        time_str = re.sub(r"([ap])[\s.:]*m[\s.:]*", r"\1m", time_str)
-        time_str = re.sub(r"\s*:\s*", ":", time_str)
-        # Check microseconds before any normalization
-        if "." in time_str:
-            parts = time_str.split(".")
-            if len(parts[-1]) > 6:
-                raise ValueError(f"Microseconds cannot exceed 6 digits: {original_str}")
+        # Handle both PM/AM and single P/A cases
+        time_str = re.sub(r"(?i)\s*([AP])(?:\.?M\.?)?", r" \1M", time_str)
 
-        time_str = time_str.replace(".", ":")
+        time_str = re.sub(r"(\d{1,2})\s*:\s*(\d{2})(?:\s*(AM|PM))?", r"\1:\2", time_str)
+        # Convert to uppercase and strip any trailing dots or spaces
+        time_str = time_str.strip(". ").upper()
 
-        # Early validation
-        if any(marker in time_str for marker in ["xm", "ym", "zm"]):
-            raise ValueError(f"Invalid time format: {original_str}")
+        # Check microsecond length
+        micro_match = re.search(r"\.(\d+)$", time_str)
+        if micro_match and len(micro_match.group(1)) > 6:
+            raise ValueError(f"Microseconds cannot exceed 6 digits: {original_str}")
 
+        # Check if we have just digits (1-2 numbers) and append :00 if needed
+        if re.match(r"^\d{1,2}$", time_str.strip()):
+            time_str = f"{time_str}:00"
+
+        # Define possible Arrow formats
+        formats = [
+            # 12-hour formats
+            "h:mm A",  # Example: 5:30 PM
+            "h:mm a",  # Example: 5:30 pm
+            "hh:mm a",  # Example: 05:30 pm
+            "h:mma",  # Example: 5:30pm
+            "h:mmA",  # Example: 5:30PM
+            "ha",  # Example: 5pm
+            "h a",  # Example: 5 pm
+            "h:mm:ss A",  # Example: 5:30:45 PM
+            "h:mm:ss a",  # Example: 5:30:45 pm
+            "hh:mm:ss a",  # Example: 05:30:45 pm
+            "hh:mm:ss A",  # Example: 05:30:45 PM
+            "h:mm:ssA",  # Example: 5:30:45PM
+            "h:mm:ssa",  # Example: 5:30:45pm
+            "hh:mm:ssa",  # Example: 05:30:45pm
+            "hh:mm:ssA",  # Example: 05:30:45PM
+            # 24-hour formats
+            "H:mm",  # Example: 17:30
+            "HH:mm",  # Example: 17:30
+            "H:mm:ss",  # Example: 17:30:45
+            "HH:mm:ss",  # Example: 17:30:45
+            "HH:mm:ss.SSSSSS",  # Example: 17:30:45.123456
+            # European-style (period separator)
+            "h.mm a",  # Example: 5.30 pm
+            "h.mma",  # Example: 5.30pm
+            "hh.mm.ss a",  # Example: 05.30.45 pm
+            "HH.mm.ss",  # Example: 17.30.45
+            "H.mm",  # Example: 17.30
+            "HH.mm",  # Example: 17.30
+            "HH.mm.ss.SSSSSS",  # Example: 17.30.45.123456
+        ]
+
+        # Parse with Arrow
         try:
-            # Try parsing with arrow first
-            formats = [
-                "HH:mm:ss.SSSSSS",
-                "HH:mm:ss",
-                "HH:mm",
-                "H:mm",
-                "h:mm A",
-                "h:mm a",
-                "hh:mm a",
-                "h:mma",
-                "h:mmA",
-                "ha",
-                "h a",
-                "H",
-                "HH",
-            ]
-
-            # Pre-validation for 24:00
-            if re.match(r"^24[\s:.][0-5][0-9]", time_str):
-                raise ValueError("Hour 24 is not allowed")
-
-            time_str = re.sub(r"\s+", " ", time_str)
             parsed_time = arrow.get(time_str, formats)
-
-            # Handle AM/PM adjustments
-            if "pm" in time_str and parsed_time.hour < 12:
-                parsed_time = parsed_time.shift(hours=12)
-            elif "am" in time_str and parsed_time.hour == 12:
-                parsed_time = parsed_time.shift(hours=-12)
-
-            # Validate components
-            if parsed_time.hour >= 24:
-                raise ValueError("Hour must be less than 24")
-            if parsed_time.minute >= 60:
-                raise ValueError("Minutes must be less than 60")
-            if parsed_time.second >= 60:
-                raise ValueError("Seconds must be less than 60")
-
-            # Create time object without timezone
-            return time(
-                parsed_time.hour, parsed_time.minute, parsed_time.second, parsed_time.microsecond
-            )
-
         except arrow.parser.ParserError:
-            # Fallback to regex parsing
-            microseconds = 0
+            raise ValueError(f"Could not parse time string: {original_str} {time_str}")
 
-            # Extract microseconds
-            micro_match = re.search(r"\.(\d{1,6})", time_str)
-            if micro_match:
-                micro_str = micro_match.group(1).ljust(6, "0")
-                microseconds = int(micro_str)
-                time_str = time_str[: micro_match.start()]
-
-            parts = [p.strip() for p in time_str.split(":")]
-            if not parts:
-                raise ValueError(f"Could not parse time string: {original_str}")
-
-            try:
-                hour_str = parts[0].strip()
-                hour_match = re.match(r"(\d{1,2})\s*([ap]m?)?", hour_str)
-
-                if not hour_match:
-                    raise ValueError(f"Invalid hour format: {hour_str}")
-
-                hours = int(hour_match.group(1))
-                period = hour_match.group(2)
-
-                if not period:
-                    if any(p in time_str for p in ["am", "pm"]):
-                        period = "pm" if "pm" in time_str else "am"
-
-                if hours >= 24 or hours < 0:
-                    raise ValueError("Hour must be between 0 and 23")
-
-                if period:
-                    if "p" in period and hours != 12:
-                        hours += 12
-                    elif "a" in period and hours == 12:
-                        hours = 0
-
-                minutes = seconds = 0
-                if len(parts) > 1:
-                    minute_match = re.match(r"(\d{1,2})", parts[1].strip())
-                    if minute_match:
-                        minutes = int(minute_match.group(1))
-                        if minutes >= 60:
-                            raise ValueError("Minutes must be less than 60")
-
-                if len(parts) > 2:
-                    second_match = re.match(r"(\d{1,2})", parts[2].strip())
-                    if second_match:
-                        seconds = int(second_match.group(1))
-                        if seconds >= 60:
-                            raise ValueError("Seconds must be less than 60")
-
-                return time(hours, minutes, seconds, microseconds)
-
-            except (ValueError, IndexError) as e:
-                raise ValueError(f"Could not parse time string: {original_str}") from e
+        # Convert Arrow datetime to time object
+        return time(
+            parsed_time.hour, parsed_time.minute, parsed_time.second, parsed_time.microsecond
+        )
 
     @classmethod
     def _components_from_str(cls, time_str: str) -> tuple[time, dict]:
@@ -366,8 +309,8 @@ class flex_time:
         clean_str = re.sub(r"[ap]\.?m\.?", "", clean_str, flags=re.IGNORECASE)
 
         # Clean up spaces and dots
-        clean_str = re.sub(r"\s*:\s*", ":", clean_str)  # Normalize spaces around colons
         clean_str = clean_str.replace(".", ":")  # Convert dots to colons
+        clean_str = re.sub(r"\s*:\s*", ":", clean_str)  # Normalize spaces around colons
         clean_str = clean_str.strip()
 
         # Count meaningful components (non-empty numeric parts)
