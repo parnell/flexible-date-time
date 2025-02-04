@@ -297,5 +297,125 @@ def test_natural_language_formats():
         assert ft.mask_to_binary(ft.mask) == expected_mask, f"Mask failed for input: {time_str}"
 
 
+
+def test_positional_args_hour_only():
+    ft = flex_time(9)
+    assert ft.time == time(9, 0, 0, 0)
+    assert ft.mask == {
+        "hour": False,
+        "minute": True,
+        "second": True,
+        "microsecond": True
+    }
+
+def test_positional_args_hour_minute():
+    ft = flex_time(9, 30)
+    assert ft.time == time(9, 30, 0, 0)
+    assert ft.mask == {
+        "hour": False,
+        "minute": False,
+        "second": True,
+        "microsecond": True
+    }
+
+def test_positional_args_hour_minute_second():
+    ft = flex_time(9, 30, 45)
+    assert ft.time == time(9, 30, 45, 0)
+    assert ft.mask == {
+        "hour": False,
+        "minute": False,
+        "second": False,
+        "microsecond": True
+    }
+
+def test_positional_args_all_components():
+    ft = flex_time(9, 30, 45, 123456)
+    assert ft.time == time(9, 30, 45, 123456)
+    assert ft.mask == {
+        "hour": False,
+        "minute": False,
+        "second": False,
+        "microsecond": True  # Always masked
+    }
+
+def test_too_many_positional_args():
+    with pytest.raises(ValueError, match="No more than 4 time components"):
+        flex_time(9, 30, 45, 123456, 789)
+
+def test_keyword_args_hour_only():
+    ft = flex_time(hour=9)
+    assert ft.time == time(9, 0, 0, 0)
+    assert ft.mask == {
+        "hour": False,
+        "minute": True,
+        "second": True,
+        "microsecond": True
+    }
+
+def test_keyword_args_hour_minute():
+    ft = flex_time(hour=9, minute=30)
+    assert ft.time == time(9, 30, 0, 0)
+    assert ft.mask == {
+        "hour": False,
+        "minute": False,
+        "second": True,
+        "microsecond": True
+    }
+
+def test_keyword_args_scattered():
+    ft = flex_time(hour=9, second=45)
+    assert ft.time == time(9, 0, 45, 0)
+    assert ft.mask == {
+        "hour": False,
+        "minute": True,
+        "second": False,
+        "microsecond": True
+    }
+
+def test_keyword_args_all_components():
+    ft = flex_time(hour=9, minute=30, second=45, microsecond=123456)
+    assert ft.time == time(9, 30, 45, 123456)
+    assert ft.mask == {
+        "hour": False,
+        "minute": False,
+        "second": False,
+        "microsecond": True  # Always masked
+    }
+
+def test_invalid_hour():
+    with pytest.raises(ValueError):
+        flex_time(24, 0)
+
+def test_invalid_minute():
+    with pytest.raises(ValueError):
+        flex_time(9, 60)
+
+def test_invalid_second():
+    with pytest.raises(ValueError):
+        flex_time(9, 30, 60)
+
+def test_invalid_microsecond():
+    with pytest.raises(ValueError):
+        flex_time(9, 30, 45, 1000000)
+
+def test_mixed_positional_and_keyword():
+    # This should fall back to the original behavior and treat the first arg
+    # as a FlextimeInput rather than mixing positional and keyword time components
+    ft = flex_time(9, minute=30)
+    assert isinstance(ft.time, time)
+
+def test_compatibility_with_original_formats():
+    # Test that original string format still works
+    ft1 = flex_time("09:30")
+    assert ft1.time == time(9, 30, 0, 0)
+    
+    # Test that original dict format still works
+    ft2 = flex_time({"hour": 9, "minute": 30})
+    assert ft2.time == time(9, 30, 0, 0)
+    
+    # Test that original time object format still works
+    ft3 = flex_time(time(9, 30))
+    assert ft3.time == time(9, 30, 0, 0)
+    
 if __name__ == "__main__":
     pytest.main(["-v", __file__])

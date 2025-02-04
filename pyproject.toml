@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flexible-datetime"
-version = "1.0.4"
+version = "1.0.8"
 description = "Flexible datetime handling for Python"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -16,6 +16,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "beanie>=1.29.0",
+    "black>=25.1.0",
     "pytest>=8.3.4",
 ]
 

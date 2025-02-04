@@ -1,8 +1,8 @@
 import json
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from enum import StrEnum
-from typing import Any, ClassVar, Optional, Union
+from typing import Any, ClassVar, Optional, Union, overload
 
 import arrow
 from dateutil import parser as date_parser
@@ -634,6 +634,57 @@ class flex_datetime:
         self._ensure_same_mask(other)
         return self.get_comparable_dt() >= other.get_comparable_dt()
 
+    @overload
+    def __sub__(self, other: Union["flex_datetime", datetime]) -> timedelta: ...
+
+    @overload
+    def __sub__(self, other: timedelta) -> "flex_datetime": ...
+
+    def __sub__(self, other: Union["flex_datetime", datetime, timedelta]) -> Union[timedelta, "flex_datetime"]:
+        """
+        Implements subtraction for flex_datetime objects.
+        Returns:
+            - timedelta when subtracting two flex_datetime objects
+            - flex_datetime when subtracting a timedelta
+        """
+        if isinstance(other, (flex_datetime, datetime, arrow.Arrow)):
+            # Convert to arrow for consistent handling
+            other_dt = arrow.get(other.dt if isinstance(other, flex_datetime) else other)
+            return self.dt - other_dt
+        elif isinstance(other, timedelta):
+            # Create new flex_datetime with subtracted timedelta
+            new_dt = self.dt - other
+            result = flex_datetime(new_dt)
+            result.mask = self.mask.copy()  # Preserve the mask
+            return result
+        return NotImplemented
+
+    def __add__(self, other: timedelta) -> "flex_datetime":
+        """
+        Implements addition of a timedelta to a flex_datetime object.
+        Returns a new flex_datetime object.
+        """
+        if isinstance(other, timedelta):
+            new_dt = self.dt + other
+            result = flex_datetime(new_dt)
+            result.mask = self.mask.copy()  # Preserve the mask
+            return result
+        return NotImplemented
+
+    def __radd__(self, other: timedelta) -> "flex_datetime":
+        """
+        Implements reverse addition (timedelta + flex_datetime).
+        """
+        return self.__add__(other)
+
+    def __rsub__(self, other: Union[datetime, "flex_datetime"]) -> timedelta:
+        """
+        Implements reverse subtraction (datetime - flex_datetime).
+        """
+        if isinstance(other, (datetime, flex_datetime)):
+            other_dt = arrow.get(other.dt if isinstance(other, flex_datetime) else other)
+            return other_dt - self.dt
+        return NotImplemented
     @classmethod
     def __get_validators__(cls):
         yield cls.validate

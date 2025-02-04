@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from enum import StrEnum
 from typing import Any, ClassVar, Optional, Union
 
@@ -7,7 +7,7 @@ import arrow
 from pydantic import GetCoreSchemaHandler
 from pydantic_core import core_schema
 
-FlextimeInput = Union[str, time, datetime, arrow.Arrow, dict, "flex_time", None]
+FlextimeInput = Union[str, int, time, datetime, arrow.Arrow, dict, "flex_time", None]
 
 
 class OutputFormat(StrEnum):
@@ -55,7 +55,15 @@ class flex_time:
 
     _default_output_format: ClassVar[OutputFormat] = OutputFormat.short
 
-    def __init__(self, *args: FlextimeInput, **kwargs: Any):
+    def __init__(
+        self,
+        *args: FlextimeInput,
+        hour: Optional[int] = None,
+        minute: Optional[int] = None,
+        second: Optional[int] = None,
+        microsecond: Optional[int] = None,
+        **kwargs: Any,
+    ):
         self.time = time(0, 0, 0, 0)  # midnight by default
         self.mask = {
             "hour": False,
@@ -69,8 +77,40 @@ class flex_time:
         if args and args[0] is None:
             raise ValueError("Cannot parse None as a flex_time.")
 
-        if not args and not kwargs:
-            return  # default values
+        # Handle positional time arguments (hour, minute, second, microsecond)
+        if len(args) > 0 and all(isinstance(arg, int) for arg in args):
+            if len(args) > 4:
+                raise ValueError(
+                    "No more than 4 time components (hour, minute, second, microsecond) can be specified"
+                )
+            time_args = list(args) + [0] * (4 - len(args))  # Pad with zeros
+            t_hour, t_minute, t_second, t_microsecond = time_args[:4]
+            self.time = time(t_hour, t_minute, t_second, t_microsecond)  # type: ignore
+            # Set masks for provided components
+            self.mask["hour"] = False
+            self.mask["minute"] = len(args) < 2
+            self.mask["second"] = len(args) < 3
+            self.mask["microsecond"] = len(args) < 4 or True  # Always mask microseconds
+            # Only set masks for provided components
+            self.mask["hour"] = False
+            self.mask["minute"] = len(args) < 2
+            self.mask["second"] = len(args) < 3
+            self.mask["microsecond"] = len(args) < 4 or True  # Always mask microseconds
+            return
+
+        # Handle keyword time arguments
+        if any(x is not None for x in [hour, minute, second, microsecond]):
+            t_hour = 0 if hour is None else hour
+            t_minute = 0 if minute is None else minute
+            t_second = 0 if second is None else second
+            t_microsecond = 0 if microsecond is None else microsecond
+            self.time = time(t_hour, t_minute, t_second, t_microsecond)
+            # Set masks based on which components were provided
+            self.mask["hour"] = hour is None
+            self.mask["minute"] = minute is None
+            self.mask["second"] = second is None
+            self.mask["microsecond"] = microsecond is None or True  # Always mask microseconds
+            return
 
         if args:
             if isinstance(args[0], dict):
@@ -341,6 +381,7 @@ class flex_time:
             "hour": 0,
             "minute": 0,
             "second": 0,
+            "microsecond": 0,
         }
         mask = {k: True for k in cls._mask_fields}
 
@@ -351,7 +392,12 @@ class flex_time:
         for k in time_dict:
             mask[k] = False
 
-        t = time(components["hour"], components["minute"], components["second"])
+        t = time(
+            components["hour"],
+            components["minute"],
+            components["second"],
+            components["microsecond"],
+        )
         return t, mask
 
     @property
@@ -366,7 +412,9 @@ class flex_time:
     @classmethod
     def binary_to_mask(cls, binary_str: str) -> dict:
         """Convert a binary string to a mask dictionary."""
-        return {field: bool(int(bit)) for field, bit in zip(cls._mask_fields, binary_str)}
+        padded_binary = binary_str.ljust(len(cls._mask_fields), "1")
+
+        return {field: bool(int(bit)) for field, bit in zip(cls._mask_fields, padded_binary)}
 
     def to_short_time(self) -> str:
         """Returns the short string representation of the time, considering the mask."""
@@ -408,6 +456,7 @@ class flex_time:
             "hour": self.time.hour,
             "minute": self.time.minute,
             "second": self.time.second,
+            "microsecond": self.time.microsecond,
         }
         return {k: v for k, v in component_json.items() if not self.mask.get(k, False)}
 
@@ -467,6 +516,11 @@ class flex_time:
             self.time.hour if not (self.mask["hour"] or other_mask["hour"]) else 0,
             self.time.minute if not (self.mask["minute"] or other_mask["minute"]) else 0,
             self.time.second if not (self.mask["second"] or other_mask["second"]) else 0,
+            (
+                self.time.microsecond
+                if not (self.mask["microsecond"] or other_mask["microsecond"])
+                else 0
+            ),
         )
 
     @classmethod
@@ -508,3 +562,43 @@ class flex_time:
             return NotImplemented
         self._ensure_compatible_mask(other)
         return self.get_comparable_time() >= other.get_comparable_time()
+
+    def __sub__(self, other: "flex_time") -> timedelta:
+        """
+        Subtract another flex_time from this one, returning a timedelta.
+        Takes masks into account - only unmasked components are considered.
+        """
+        if not isinstance(other, flex_time):
+            return NotImplemented
+
+        # Ensure masks are compatible before subtraction
+        self._ensure_compatible_mask(other)
+
+        # Use the comparable times that respect masks
+        t1 = self.get_comparable_time()
+        t2 = other.get_comparable_time()
+
+        # Let Python's time handle the subtraction
+        return datetime.combine(datetime.min, t1) - datetime.combine(datetime.min, t2)
+
+    def __add__(self, other: timedelta) -> "flex_time":
+        """Add a timedelta to this flex_time."""
+        if not isinstance(other, timedelta):
+            return NotImplemented
+
+        # Use datetime to handle the addition and wrapping
+        dt = datetime.combine(datetime.min, self.time) + other
+
+        # Create new flex_time with same mask
+        result = flex_time(dt.time())
+        result.mask = self.mask.copy()
+        return result
+
+    def __radd__(self, other: timedelta) -> "flex_time":
+        """Support reverse addition (timedelta + flex_time)."""
+        return self.__add__(other)
+
+    def __rsub__(self, other) -> timedelta:
+        """Handle reverse subtraction - explicitly return NotImplemented.
+        This lets Python know we don't support subtracting a flex_time from other types."""
+        return NotImplemented

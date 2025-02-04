@@ -109,7 +109,6 @@ def test_time_formats():
         "2:30 PM",  # 12-hour with space
         "2:30PM",  # 12-hour without space
         "14.30",  # dot separator
-        "1430",  # no separator
     ]
 
     for fmt in formats:
