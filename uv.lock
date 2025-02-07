@@ -100,7 +100,7 @@ wheels = [
 
 [[package]]
 name = "flexible-datetime"
-version = "1.0.4"
+version = "1.0.8"
 source = { editable = "." }
 dependencies = [
     { name = "arrow" },
