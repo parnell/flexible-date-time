@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flexible-datetime"
-version = "1.0.8"
+version = "1.0.9"
 description = "Flexible datetime handling for Python"
 readme = "README.md"
 license = {file = "LICENSE"}
